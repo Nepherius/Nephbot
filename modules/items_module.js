@@ -48,9 +48,10 @@ exports.items = items = function(userId, args) {
 							found += '(' + result[0][i].lowql + ' - ' + result[0][i].highql + ')\n'
 						}	
 						send_MESSAGE_PRIVATE(userId, blob('Item Search Results(' + result[0].length + ')' , found))
-							
+						connection.release()	
 					} else {
 						send_MESSAGE_PRIVATE(userId,'No items found matching: ' + searchText)
+						connection.release()
 					}					
 					
 				})	
