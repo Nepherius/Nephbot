@@ -376,7 +376,7 @@ var commands = {
 			connection.release()
 		})
 	},
-	shutdown : function	(userId)
+	shutdown : function (userId) { die() } // needs work
 };
 
 commands.whois = whois
