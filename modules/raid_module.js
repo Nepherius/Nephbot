@@ -11,7 +11,6 @@ var capitalize = require('underscore.string/capitalize')
 raidLoot = []
 
 exports.raid = raid  = function(userId, args) { // add default case - no args
-	
 	connectdb().done(function(connection) {
 		getUserName(connection,userId).done(function(result) {
 			userName = result[0][0].name
@@ -34,7 +33,7 @@ exports.raid = raid  = function(userId, args) { // add default case - no args
 								if (raidStatus === 'running' || raidStatus === 'paused') {
 									send_PRIVGRP_MESSAGE(botId, 'Raid already running')
 								} else {
-									query(connection,'INSERT INTO raidinfo (status,description,leader,start) VALUES ("running", "' + raidDescription + '","' + userName + '",(UNIX_TIMESTAMP(NOW())))').done(function() {
+									query(connection,'INSERT INTO raidinfo (status,description,leader,start) VALUES ("running", "' + connection.escape(raidDescription) + '","' + userName + '",(UNIX_TIMESTAMP(NOW())))').done(function() {
 										send_PRIVGRP_MESSAGE(botId,	userName + ' started the raid ' + raidDescription) // add colors and clickable raid join link
 								})	
 								}	
@@ -149,9 +148,9 @@ exports.raid = raid  = function(userId, args) { // add default case - no args
 									query(connection,'SELECT * FROM raidforce WHERE name = "' + args[1] + '"').done(function(result) {
 										if (result[0].length !== 0) {
 											getUserId(connection,args[1]).done(function(result) {
-												query(connection,'DELETE FROM raidforce WHERE name = "' +result[0][0].name + '"').done(function() {
+												query(connection,'DELETE FROM raidforce WHERE name = "' + connection.escape(result[0][0].name)) + '"').done(function() {
 													send_PRIVGRP_MESSAGE(botId,	userName + ' was kicked from the raid')
-													query(connection,'SELECT * FROM players WHERE name = "' +result[0][0].name + '"').done(function(result) {
+													query(connection,'SELECT * FROM players WHERE name = "' + connection.escape(result[0][0].name) + '"').done(function(result) {
 														send_MESSAGE_PRIVATE(result[0][0].charid, 'You\'ve been kicked from the raid by ' + userName )	
 													})	
 												})
@@ -168,11 +167,11 @@ exports.raid = raid  = function(userId, args) { // add default case - no args
 							case 'add': // Add check to see if user is on channel
 							if (raidStatus === 'running' || raidStatus === 'paused') {
 								
-										query(connection,'SELECT * FROM raidforce WHERE name = "' + args[1] + '"').done(function(result) {
+										query(connection,'SELECT * FROM raidforce WHERE name = "' + connection.escape(args[1]) + '"').done(function(result) {
 											if (result[0].length !== 0) {
 												send_MESSAGE_PRIVATE(userId,  args[1] + 'is already in raid')	
 											} else {
-												query(connection,'INSERT INTO raidforce (name,points) VALUES ("' + args[1] + '", 0)').done(function() {
+												query(connection,'INSERT INTO raidforce (name,points) VALUES ("' + connection.escape(args[1]) + '", 0)').done(function() {
 													send_PRIVGRP_MESSAGE(botId,	args[1] + ' was added to the raid by ' + userName)
 												})										
 											}	

@@ -9,7 +9,7 @@ var s = connect.s
 var events = require('events')
 var Q = require('q')
 var parseString = require('xml2js').parseString;
-var http = require('http'); // switched to 'request'
+var http = require('http'); // use request.get
 var util = require('util')
 var express = require('express');
 var request = require('request')
@@ -36,13 +36,11 @@ global.pool = mysql.createPool({
 });
 
 
-
-var LOGIN = ''
-var PASS = ''
-global.Botname = 'Botname'
-var commandPrefix = '.'
-
-function pack_key(key) {
+var LOGIN = 'user'
+var PASS = 'pass'
+global.Botname = 'Nephbot'
+var commandPrefix = '!'
+    function pack_key(key) {
         return pack.pack(
         [
             ['I', 0],
@@ -118,7 +116,7 @@ handle[auth.AOCP.CLIENT_NAME] = function (data, u) {
 			if (result[0].length === 0 || (new Date() / 1000 - result[0][0].lastupdate) > 86400 ) { 
 			query(connection,'DELETE FROM players WHERE charId ='+ userId)
 			request('http://people.anarchy-online.com/character/bio/d/5/name/' + userName + '/bio.xml', function (error, response, body) {
-		if (!error && response.statusCode == 200) {
+				if (!error && response.statusCode == 200) {
 					if (body.length > 10) { // check if xml is empty
 						parseString(body, function (err, result) {
 							charName = result.character.name[0]
@@ -134,7 +132,6 @@ handle[auth.AOCP.CLIENT_NAME] = function (data, u) {
 									}
 								}	
 							charLastUpdated = result.character.last_updated[0]
-							
 							connection.query('INSERT INTO players (charid, firstname, name, lastname, level, breed, gender, faction, profession, profession_title, ai_rank, ai_level, guild, guild_rank, source, lastupdate) VALUES (' 
 								+ userId 
 								+ ',"' + charName.firstname + '",' 
@@ -163,9 +160,12 @@ handle[auth.AOCP.CLIENT_NAME] = function (data, u) {
 						} else {
 							connection.release()
 						}	
-					}							
+					} else {
+						backUpWhois(connection,userName,userId)
+					}					
 				}).on('error', function(err) {
 					console.log('Error while trying to connect to AO People: ' + err)
+					backUpWhois(connection,userName,userId)
 				})
 			} else {
 				connection.release()
@@ -174,6 +174,60 @@ handle[auth.AOCP.CLIENT_NAME] = function (data, u) {
 	})
 }
 
+var backUpWhois = function (connection,userName,userId) {
+	request('https://rubi-ka.net/services/characters.asmx/GetAoCharacterXml?name=' + userName, function (error, response, body) {
+		if (!error && response.statusCode == 200) {
+		if (body.length > 10) { // check if xml is empty
+			parseString(body, function (err, result) {
+				charName = result.character.name[0]
+				charStats = result.character.basic_stats[0]
+				charOrg =''
+				charOrg.organization_name = 'Not in a guild'
+				charOrg.rank = 'None'
+				if (result.character.organization_membership !== undefined) { charOrg = result.character.organization_membership[0]
+					} else {
+						charOrg = {
+						organization_name : 'Not in a guild',
+						rank : 'None'	
+						}
+					}	
+				charLastUpdated = result.character.last_updated
+				connection.query('INSERT INTO players (charid, firstname, name, lastname, level, breed, gender, faction, profession, profession_title, ai_rank, ai_level, guild, guild_rank, source, lastupdate) VALUES (' 
+					+ userId 
+					+ ',"' + charName.firstname + '",' 
+					+ '"' + charName.nick + '",' 
+					+ '"' + charName.lastname + '",' 
+					+ charStats.level + ','
+					+ '"' + charStats.breed + '",'
+					+ '"' + charStats.gender + '",'
+					+ '"' + charStats.faction + '",'
+					+ '"' + charStats.profession + '",'
+					+ '"' + charStats.profession_title + '",'
+					+ '"' + charStats.defender_rank + '",'
+					+ charStats.defender_rank_id + ','
+					+ '"' + charOrg.organization_name + '",'
+					+ '"' + charOrg.rank + '",'
+					+ '"https://rubi-ka.net",'
+					+ '(UNIX_TIMESTAMP(NOW())))', function(err, result) {
+						if(err) {
+							console.log(err)
+							connection.release()
+						}
+						connection.release()	
+						}
+					)	
+				})
+			} else {
+				connection.release()
+			}	
+		} else {
+			connection.release()
+		}		
+	}).on('error', function(err) {
+		console.log('Error while trying to connect to Rubi-Ka.net: ' + err)
+		connection.release()
+	})
+}	
 handle[auth.AOCP.BUDDY_ADD] = function (data, u) { // handles online/offline status too
     var userId = u.I()
     var userStatus = u.I() == 1 ? 'online' : 'offline'
@@ -215,7 +269,7 @@ handle[auth.AOCP.CLIENT_LOOKUP] = function (data, u) {
     var idResult = userId;
     outstandingLookups.emit(userName, idResult)
 }
-
+/*
 var extHandle = {}
 
 handle[auth.AOCP.GROUP_MESSAGE] = function (data, u)
@@ -298,7 +352,7 @@ extHandle.ORG_JOIN = function (u) { // Template
     var s2 = u.eS()
     console.log(s1 + ' invited ' + s2 + ' to your organization.' )
 }
-
+*/
 handle[auth.AOCP.CHAT_NOTICE] = function (data, u) {
     console.log('CHAT_NOTICE')
     var userId = u.I()
@@ -636,7 +690,7 @@ global.query = function(connection,sql) {
         })
 }	
 global.getUserName = function(connection, userId) {
-		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE charid = ' + userId  ).fail(function (err, connection)
+		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE `charid` = ' + userId  ).fail(function (err, connection)
         {
         console.log(err)
         connection.release()

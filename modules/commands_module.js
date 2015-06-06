@@ -5,6 +5,7 @@ var Q = require('q')
 var express = require('express');
 var mysql = require('mysql');
 var _ = require('underscore')
+var capitalize = require('underscore.string/capitalize')
 
 // Import commands
 var whois_module = require('./whois_module.js')
@@ -106,21 +107,22 @@ var commands = {
 				if (idResult === -1) {
 					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {	
+					userName = capitalize(userName[0].toLowerCase())
+					
 					connectdb().done(function (connection) {
-						
-						query(connection,'SELECT * FROM admins WHERE name ="' + userName + '"').done(function(result) {
+						query(connection,'SELECT * FROM admins WHERE name ="' + connection.escape(userName) + '"').done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
 								if (result[0][0].level >= 4) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already an admin')
 									connection.release()
 								} else {
-									query(connection,'UPDATE admins SET level = 4 WHERE name = "' + userName + '"').done(function(result) {
+									query(connection,'UPDATE admins SET level = 4 WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
 										send_MESSAGE_PRIVATE(userId, 'Promoted ' + userName + ' to admin')
 										connection.release()
 									})	
 								}	
 							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + userName + '",' + 4 + ',"admin")').done(function(result) {
+								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + connection.escape(userName) + '",' + 4 + ',"admin")').done(function(result) {
 									send_BUDDY_ADD(idResult)
 									send_MESSAGE_PRIVATE(userId, userName + ' is now an admin')
 									connection.release()
@@ -143,8 +145,9 @@ var commands = {
 				if (idResult === -1) {
 					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {	
+					userName = capitalize(userName[0].toLowerCase())
 					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name ="' + userName + '"').done(function(result) {
+						query(connection,'SELECT * FROM admins WHERE name ="' + connection.escape(userName) + '"').done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
 								if (result[0][0].level == 3) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a moderator')
@@ -157,7 +160,7 @@ var commands = {
 									connection.release() // just to be safe
 								}	
 							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + userName + '",' + 3 + ',"moderator")').done(function(result) {
+								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + connection.escape(userName) + '",' + 3 + ',"moderator")').done(function(result) {
 									send_BUDDY_ADD(idResult)
 									send_MESSAGE_PRIVATE(userId, userName + ' is now a moderator')
 									connection.release()
@@ -175,14 +178,15 @@ var commands = {
 	},
 	deladmin: function(userId, userName) {
 		if (userName !== undefined) {	
+			userName = capitalize(userName[0].toLowerCase())
 			connectdb().done(function (connection) { 	
-				query(connection,'SELECT * FROM admins WHERE name = "' + userName + '"').done(function(result) {
+				query(connection,'SELECT * FROM admins WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not an admin')
 						connection.release()
 					} else {
 						adminCharId = result[0][0].charid
-						query(connection,'DELETE FROM admins WHERE name = "' + userName + '"').done(function(result) {
+						query(connection,'DELETE FROM admins WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
 						send_BUDDY_REMOVE(adminCharId)
 						send_MESSAGE_PRIVATE(userId, userName + ' is no longer an admin')
 						connection.release()									
@@ -201,14 +205,15 @@ var commands = {
 			commands.lookupUserName(userName).then(function (idResult) {
 				if (idResult === -1) {
 				send_MESSAGE_PRIVATE(userId, userName + ' not found')	
-				} else {	
+				} else {
+					userName = capitalize(userName[0].toLowerCase())					
 					connectdb().done(function(connection) {
-						query(connection,'SELECT * FROM members WHERE name = "' + userName + '"').done(function (result) {
+						query(connection,'SELECT * FROM members WHERE name = "' + connection.escape(userName) + '"').done(function (result) {
 							if (result[0].length !== 0) { //first check if player is already an admin 
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a member')
 									connection.release()
 							} else {	
-								query(connection,'INSERT INTO members (charId, name) VALUES (' + idResult + ',"' + userName + '")').done(function() {
+								query(connection,'INSERT INTO members (charId, name) VALUES (' + idResult + ',"' + connection.escape(userName) + '")').done(function() {
 								send_MESSAGE_PRIVATE(userId, 'Added ' + userName + ' to member list')
 								connection.release()	
 								})
@@ -225,13 +230,14 @@ var commands = {
 	},
 	delmember: function(userId, userName) {
 		if (userName !== undefined) {	
+			userName = capitalize(userName[0].toLowerCase())
 			connectdb().done(function(connection) {
-				query(connection,'SELECT * FROM members WHERE name = "' + userName + '"').done(function(result) {
+				query(connection,'SELECT * FROM members WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not a member of this bot')
 						connection.release()
 					}	else {	
-						query(connection,'DELETE FROM members WHERE name = "' + userName + '"').done(function () {
+						query(connection,'DELETE FROM members WHERE name = "' + connection.escape(userName) + '"').done(function () {
 							send_MESSAGE_PRIVATE(userId, userName + ' is no longer a member of this bot')
 							connection.release()	
 						})	
@@ -376,7 +382,7 @@ var commands = {
 			connection.release()
 		})
 	},
-	shutdown : function	(userId)
+	shutdown : function	(userId) {}
 };
 
 commands.whois = whois
