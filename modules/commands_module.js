@@ -422,6 +422,7 @@ function Cmd(helpInfo, commands) {
     }
 }
 
+
 var helpCmd = {}
 helpCmd.invite = 'To invite a player to the channel use: !invite \'player\'' // a lonely example
 // Create an instance of Cmd.

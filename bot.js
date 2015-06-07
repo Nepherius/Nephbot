@@ -9,11 +9,10 @@ var s = connect.s
 var events = require('events')
 var Q = require('q')
 var parseString = require('xml2js').parseString;
-var http = require('http'); // use request.get
 var util = require('util')
 var express = require('express');
 var request = require('request')
-
+var buffertools = require('buffertools');
 // Import Commands
 var commands = require('./modules/commands_module.js')
 // Define Events
@@ -38,8 +37,9 @@ global.pool = mysql.createPool({
 
 var LOGIN = 'user'
 var PASS = 'pass'
+global.ORG = ''
 global.Botname = 'Nephbot'
-var commandPrefix = '!'
+var commandPrefix = '.'
     function pack_key(key) {
         return pack.pack(
         [
@@ -269,14 +269,14 @@ handle[auth.AOCP.CLIENT_LOOKUP] = function (data, u) {
     var idResult = userId;
     outstandingLookups.emit(userName, idResult)
 }
-/*
+
 var extHandle = {}
 
 handle[auth.AOCP.GROUP_MESSAGE] = function (data, u)
 {
-	console.log('GROUP_MESSAGE')
+	
 
-	var ch = u.G()
+	var g = u.G()
 	var userId = u.I()
 	var text = u.E()
 	var unknownPart = u.S()
@@ -285,66 +285,68 @@ handle[auth.AOCP.GROUP_MESSAGE] = function (data, u)
 //  <Buffer 03 00 00 25 e0> ==> ORG
 //  <Buffer 87 07 76 01 10> ==> VICINITY
 
-	var ext = u.extMsg(text)
+	if (buffertools.compare(g, orgBuffer ) === 0) {
+		var ext = u.extMsg(text)
 
-	if (ext.text)
-	{
-		console.log({ch : ch, userId : userId, nonExtended : ext.text})
-		return
-	}
-
-
-	console.log({from: userId, category : ext.category, instance : ext.instance })
-	var cats = {
-		//MISC
-		'501_ad0ae9b' : 'ORG_LEAVE', // alingment change
-		
-		// Towers	
-		'506_0c299d4' : 'NW_ATTACK',
-		'506_8cac524' : 'NW_ABANDON',
-		'506_70de9b2' : 'NW_OPENING',
-		'506_5a1d609' : 'NW_TOWER_ATT_ORG',
-		'506_5a1d68'  : 'NW_TOWER_ATT',
-		'506_fd5a1d4' : 'NW_TOWER',
-		
-		// ORG
-		'508_a5849e7' : 'ORG_JOIN',
-		'508_2360067' : 'ORG_KICK',
-		'508_2bd9377' : 'ORG_LEAVE',
-		'508_8487156' : 'ORG_FORM',
-		'508_88cc2e7' : 'ORG_DISBAND',
-		'508_477095'  : 'ORG_VOTE',
-		'508_8241d4'  : 'ORG_ORBITAL_STRIKE',
-		
-		//CITY
-		'1001_01' : 'AI_CLOAK',
-		'1001_02' : 'AI_RADAR',
-		'1001_03' : 'AI_ATTACK',
-		'1001_04' : 'AI_HQ_REMOVE',
-		'1001_05' : 'AI_REMOVE_INIT',
-		'1001_06' : 'AI_REMOVE',
-		'1001_07' : 'AI_HQ_REMOVE_INIT'	
-	   
-   	} 
-
-	var key = ext.category + '_' + ext.instance
-
-	if (key in cats)
-	{
-		if (cats[key] in extHandle)
+		if (ext.text)
 		{
-			console.log("extHandle.%s", cats[key])
-			extHandle[cats[key]](ext.u)
+			//console.log({g : g, userId : userId, nonExtended : ext.text})
+			incMessage.emit('org', userId, ext.text)
+			return
+		}
+		console.log({from: userId, category : ext.category, instance : ext.instance })
+		var cats = {
+			//MISC
+			'501_ad0ae9b' : 'ORG_LEAVE', // alingment change
+			
+			// Towers	
+			'506_0c299d4' : 'NW_ATTACK',
+			'506_8cac524' : 'NW_ABANDON',
+			'506_70de9b2' : 'NW_OPENING',
+			'506_5a1d609' : 'NW_TOWER_ATT_ORG',
+			'506_5a1d68'  : 'NW_TOWER_ATT',
+			'506_fd5a1d4' : 'NW_TOWER',
+			
+			// ORG
+			'508_a5849e7' : 'ORG_JOIN',
+			'508_2360067' : 'ORG_KICK',
+			'508_2bd9377' : 'ORG_LEAVE',
+			'508_8487156' : 'ORG_FORM',
+			'508_88cc2e7' : 'ORG_DISBAND',
+			'508_477095'  : 'ORG_VOTE',
+			'508_8241d4'  : 'ORG_ORBITAL_STRIKE',
+			
+			//CITY
+			'1001_01' : 'AI_CLOAK',
+			'1001_02' : 'AI_RADAR',
+			'1001_03' : 'AI_ATTACK',
+			'1001_04' : 'AI_HQ_REMOVE',
+			'1001_05' : 'AI_REMOVE_INIT',
+			'1001_06' : 'AI_REMOVE',
+			'1001_07' : 'AI_HQ_REMOVE_INIT'	
+		   
+		} 
+
+		var key = ext.category + '_' + ext.instance
+
+		if (key in cats)
+		{
+			if (cats[key] in extHandle)
+			{
+				console.log("extHandle.%s", cats[key])
+				extHandle[cats[key]](ext.u)
+			}
+			else
+			{
+				console.log("No extHandle.%s", cats[key])
+			}
 		}
 		else
 		{
-			console.log("No extHandle.%s", cats[key])
+			console.log("Unknown extended message identifier: %s", key)
 		}
-	}
-	else
-	{
-		console.log("Unknown extended message identifier: %s", key)
-	}
+	}	
+	
 }
 
 extHandle.ORG_JOIN = function (u) { // Template
@@ -352,7 +354,7 @@ extHandle.ORG_JOIN = function (u) { // Template
     var s2 = u.eS()
     console.log(s1 + ' invited ' + s2 + ' to your organization.' )
 }
-*/
+
 handle[auth.AOCP.CHAT_NOTICE] = function (data, u) {
     console.log('CHAT_NOTICE')
     var userId = u.I()
@@ -515,13 +517,16 @@ global.send_BUDDY_REMOVE = function(userId) {
         ['I', userId]
     ])
 }
-global.send_GROUP_MESSAGE = function() {
+
+global.orgBuffer = new Buffer([0x03, 0x00, 0x00, 0x25, 0xe0])
+
+global.send_GROUP_MESSAGE = function(msg) {
 	console.log('send_GROUP_MESSAGE')
 	send(
 	auth.AOCP.GROUP_MESSAGE, [
-		['G', ''], // G = GROUP ID ? ChannelId ? Guild Id
-		['S', 'text'],
-		['S', 'text2']	
+		['G', orgBuffer], // G = GROUP ID ? ChannelId ? Guild Id
+		['S', msg],
+		['S', 'text']	
 	])
 }	
 // EVENT HANDLERS //
@@ -617,7 +622,47 @@ incMessage.on('grp', function (userId, message) {
         send_MESSAGE_PRIVATE(userId, 'Command not found');
     }
 })
-//incMessage.on('org' ... to be added
+
+incMessage.on('org', function (userId, message) {
+	console.log('[' + ORG + ']'  + message)
+	if (message[0].match(/\./) && cmd.hasOwnProperty(message.split(' ')[0].replace(commandPrefix, '').toLowerCase())) {
+        checkAccess(userId).done(function (result) {
+            var userAc = result
+            connectdb().done(function (connection) {
+                query(connection, 'SELECT * FROM cmdcfg WHERE module = "Core" AND cmd = "' + message.split(' ')[0].replace(commandPrefix, '') + '"').done(function (result2) {
+                    if (result2[0].length === 0 || result2[0].length > 0 && result2[0][0].status === 'enabled') {
+                        if (result2[0].length === 0 || result2[0][0].access_req <= userAc) {
+                            console.log('User acc' + userAc)
+
+                            setTimeout(function () {
+                                if (message.split(' ').length === 1) {
+                                    cmd[message.replace(commandPrefix, '').toLowerCase()](userId)
+                                } else {
+                                    var args = []
+                                    for (var i = 1; i < message.split(' ').length; i++) {
+                                        args.push(message.split(' ')[i])
+                                    }
+                                    //console.log(args)
+                                    cmd[message.split(' ')[0].replace(commandPrefix, '').toLowerCase()](userId, args)
+                                }
+                            }, 500)
+                        } else {
+                            send_MESSAGE_PRIVATE(userId, 'Access denied');
+                            connection.release()
+                        }
+                    } else {
+                        connection.release()
+                        send_MESSAGE_PRIVATE(userId, 'Command Disabled')
+                    }
+                })
+				connection.release()
+            })
+        })
+    } else if (message[0].match(/\./)) {
+        send_MESSAGE_PRIVATE(userId, 'Command not found');
+    }
+})	
+
 buddyStatus.on('online', function (userId, userStatus) {
     connectdb().done(function(connection) {
 		getUserName(connection,userId).done(function(result) {
@@ -751,10 +796,8 @@ global.blob = function (name, content) {
 
 global.tellBlob = function (user, content, link) {
   return '<a href=\"chatcmd:///tell ' + user + ' ' + content.replace("'", "`") + '\">' + link + '</a>'
-  
-	
-}
+ }
 
-global.itemref = function (low,high,ql, name) {
-	return  "<a href=\"itemref://" + low + "/" + high + "/" + ql + "\">" + name.replace("'", "`") + "</a>"
+global.itemref = function (lowid,highid,ql, name) {
+	return  "<a href=\"itemref://" + lowid + "/" + highid + "/" + ql + "\">" + name.replace("'", "`") + "</a>"
 } 	
