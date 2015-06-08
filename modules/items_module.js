@@ -1,7 +1,6 @@
 var assert = require('assert')
 var Q = require('q')
 var parseString = require('xml2js').parseString;
-var http = require('http')
 var util = require('util')
 var express = require('express')
 var request = require('request')
@@ -34,11 +33,12 @@ exports.items = items = function(userId, args) {
 			console.log('Error ' + error)
 			connectdb().done(function(connection) {// Needs fixing, accuracy sucks
 				if (isNaN(args[0])) { searchText = args.join('%') } else { searchText = args.slice(1).join('%') }
+				searchText = searchText.replace(/exec|execute|select|insert|update|delete|create|alter|drop|rename|truncate|backup|restore|\*|\||\?/gim, '')
 				query(connection,'SELECT * FROM aodb WHERE'  + (!isNaN(args[0]) ? ' highql >= ' + +args[0] + ' AND lowql <=' + args[0] + ' AND' : '') + ' name LIKE "' + searchText  + '%"' + 'OR name LIKE "% ' + searchText + '%"').done(function(result) {
 					if(result[0].length !== 0 ) {
 						found = '<center> <font color=#FFFF00> ::: ' + result[0].length +  ' Results Found::: </font> </center> \n\n'
 						found += 'Source: Local \n'
-						found += 'Search: ' + searchText + '\n\n'
+						found += 'Search: ' + searchText.replace(/%/g,' ') + '\n\n'
 						searchQl = isNaN(+args[0]) ? 0 : args[0]
 						for (i = 0; i < result[0].length; i++) {
 							if (searchQl == 0 ) { itemQl = result[0][i].highql } else { itemQl = searchQl }
