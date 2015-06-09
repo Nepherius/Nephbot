@@ -2,27 +2,28 @@ var net = require('net')
 var auth = require('./chat-packet')
 var pack = require('./pack')
 
-var HOST = 'chat.d1.funcom.com'
-var PORT = 7105
 var DEBUG = 0;
 
 process.on('uncaughtException', function (err) {
 	console.log("uncaughtException %s", err)
-  console.log(err.stack);
+	console.log(err.stack);
+	process.exit(1)
 })
 
 
 //Connect to server & auth
-console.log('Attempting Connection to server...')
-
 
 var s = new net.Socket()
 exports.s = s
 
+exports.startBot = startBot = function(HOST,PORT) {
+ console.log('Attempting Connection to server...')
+
 s.connect(PORT, HOST, function ()
-{
-	console.log('Connection Established!')
-})
+	{
+		console.log('Connection Established!')
+	})
+}
 
 
 exports.handle = {}

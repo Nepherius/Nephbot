@@ -1,9 +1,9 @@
 var timestamp = require('console-stamp')(console, '[dd.mm.yyyy HH:MM:ss.l]');
 var fs = require('fs')
 var assert = require('assert')
-var pack = require('./pack')
-var auth = require('./chat-packet')
-var connect = require('./connect')
+var pack = require('./system/pack')
+var auth = require('./system/chat-packet')
+var connect = require('./system/connect')
 var handle = connect.handle
 var s = connect.s
 var events = require('events')
@@ -13,53 +13,43 @@ var util = require('util')
 var express = require('express');
 var request = require('request')
 var buffertools = require('buffertools');
+var mysql      = require('mysql');
+
+
 // Import Commands
 var commands = require('./modules/commands_module.js')
+
 // Define Events
 global.outstandingLookups = new events.EventEmitter()
-
 var buddyStatus = new events.EventEmitter()
 var privgrp = new events.EventEmitter()
-
 var incMessage = new events.EventEmitter()
 
+// Colors, just one for now
 var defaultFontColor = '<font color=\'#89D2E8\'>'
 
-var mysql      = require('mysql');
-global.pool = mysql.createPool({
-  connectionLimit: 6,
-  host     : 'localhost',
-  database : 'raidbot',
-  user     : 'raidbot',
-  password : 'raidbot'
-});
 
 
-var LOGIN = 'user'
-var PASS = 'pass'
-global.ORG = ''
-global.Botname = 'Nephbot'
-var commandPrefix = '.'
-    function pack_key(key) {
-        return pack.pack(
-        [
-            ['I', 0],
-            ['S', LOGIN],
-            ['S', key]
-        ])
-    }
 
-	
-	
-// RESPONSE HANDLERS //	
-	
+var commandPrefix = '!'
+
+// Login	
+
+function pack_key(key) {
+	return pack.pack(
+	[
+		['I', 0],
+		['S', Login],
+		['S', key]
+	])
+}
 handle[auth.AOCP.LOGIN_SEED] = function (payload) {
     console.log('LOGIN_SEED')
     var seedLength = payload.readInt16BE(0)
     assert.equal(seedLength, payload.length - 2)
     var seed = payload.slice(2)
 
-    var data = pack_key(auth.generate_login_key(seed, LOGIN, PASS))
+    var data = pack_key(auth.generate_login_key(seed, Login, Pass))
     var pp = auth.assemble_packet(auth.AOCP.LOGIN_REQUEST, data)
 
     s.write(pp)
@@ -89,7 +79,7 @@ handle[auth.AOCP.LOGIN_CHARLIST] = function (data) {
     var pp = auth.assemble_packet(auth.AOCP.LOGIN_SELECT, data)
     s.write(pp)
 }
-
+// RESPONSE HANDLERS //	
 handle[auth.AOCP.LOGIN_ERROR] = function (data) {
     pack.unpackError(data)
     die()
@@ -625,7 +615,7 @@ incMessage.on('grp', function (userId, message) {
 
 incMessage.on('org', function (userId, message) {
 	console.log('[' + ORG + ']'  + message)
-	if (message[0].match(/\./) && cmd.hasOwnProperty(message.split(' ')[0].replace(commandPrefix, '').toLowerCase())) {
+	if (message[0].match(/\!/) && cmd.hasOwnProperty(message.split(' ')[0].replace(commandPrefix, '').toLowerCase())) {
         checkAccess(userId).done(function (result) {
             var userAc = result
             connectdb().done(function (connection) {
@@ -658,7 +648,7 @@ incMessage.on('org', function (userId, message) {
 				connection.release()
             })
         })
-    } else if (message[0].match(/\./)) {
+    } else if (message[0].match(/\!/)) {
         send_MESSAGE_PRIVATE(userId, 'Command not found');
     }
 })	

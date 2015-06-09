@@ -4,7 +4,7 @@ var Q = require('q')
 var util = require('util')
 var express = require('express');
 var mysql      = require('mysql');
-var bot = require('../bot.js');
+var main = require('../main.js');
 var _ = require('underscore')
 var capitalize = require('underscore.string/capitalize')
 
@@ -148,7 +148,7 @@ exports.raid = raid  = function(userId, args) { // add default case - no args
 									query(connection,'SELECT * FROM raidforce WHERE name = "' + args[1] + '"').done(function(result) {
 										if (result[0].length !== 0) {
 											getUserId(connection,args[1]).done(function(result) {
-												query(connection,'DELETE FROM raidforce WHERE name = "' + connection.escape(result[0][0].name)) + '"').done(function() {
+												query(connection,'DELETE FROM raidforce WHERE name = "' + connection.escape(result[0][0].name) + '"').done(function() {
 													send_PRIVGRP_MESSAGE(botId,	userName + ' was kicked from the raid')
 													query(connection,'SELECT * FROM players WHERE name = "' + connection.escape(result[0][0].name) + '"').done(function(result) {
 														send_MESSAGE_PRIVATE(result[0][0].charid, 'You\'ve been kicked from the raid by ' + userName )	

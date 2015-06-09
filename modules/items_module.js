@@ -31,7 +31,7 @@ exports.items = items = function(userId, args) {
 			})	
 		} else {
 			console.log('Error ' + error)
-			connectdb().done(function(connection) {// Needs fixing, accuracy sucks
+			connectdb().done(function(connection) {// Needs some work
 				if (isNaN(args[0])) { searchText = args.join('%') } else { searchText = args.slice(1).join('%') }
 				searchText = searchText.replace(/exec|execute|select|insert|update|delete|create|alter|drop|rename|truncate|backup|restore|\*|\||\?/gim, '')
 				query(connection,'SELECT * FROM aodb WHERE'  + (!isNaN(args[0]) ? ' highql >= ' + +args[0] + ' AND lowql <=' + args[0] + ' AND' : '') + ' name LIKE "' + searchText  + '%"' + 'OR name LIKE "% ' + searchText + '%"').done(function(result) {

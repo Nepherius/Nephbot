@@ -12,15 +12,8 @@ var whois_module = require('./whois_module.js')
 var raid_module = require('./raid_module.js')
 var test_module = require('./test_module.js')
 var items_module = require('./items_module.js')
+var bossloot_module = require('./bossloot_module.js')
 
-// Access groups NOT IN USE
-global.all = 0
-global.member = 1
-global.leader = 2 
-global.mod = 3
-global.admin = 4
-global.owner = 5
-//
 
 var commands = {
     lookupUserName: function (userName) {
@@ -383,11 +376,19 @@ var commands = {
 		})
 	},
 	shutdown : function	(userId) {
+		if (ORG !== false) {
+			send_GROUP_MESSAGE('Shutting Down')
+		} else {
+			send_PRIVGRP_MESSAGE(botId,'Shutting Down')
+		}	
 		die('Shutting down')
 	}
 };
 
+//General
 commands.whois = whois
+commands.items = items
+//Raid
 commands.raid = raid
 commands.bid = bid
 commands.list = list
@@ -395,19 +396,24 @@ commands.points = points
 commands.add = add
 commands.rem = rem
 commands.flatroll = flatroll
-commands.items = items
+//Boss Loot
+commands['12m'] = boss12m
+commands.s7 = s7
+commands.s13 = s13
+commands.s42 = s42
 
 
 commands.test = test
-
+// Export commands to bot.js
 module.exports = commands
-//console.log(extended.hasOwnProperty('whois'))
 
+
+// Create & Initiate Cmd
 function Cmd(helpInfo, commands) {
     var functionName;
     this.help = function (replyTo, helpTopic) {
         if (undefined === helpTopic) {
-            send_MESSAGE_PRIVATE(replyTo, 'To Be Added') // point to help file
+            send_MESSAGE_PRIVATE(replyTo, 'To Be Added')
         } else if (helpInfo.hasOwnProperty(helpTopic)) {
             send_MESSAGE_PRIVATE(replyTo, helpInfo[helpTopic])
         } else {
@@ -422,9 +428,8 @@ function Cmd(helpInfo, commands) {
     }
 }
 
-
 var helpCmd = {}
 helpCmd.invite = 'To invite a player to the channel use: !invite \'player\'' // a lonely example
+
 // Create an instance of Cmd.
 global.cmd = new Cmd(helpCmd, commands);
-
