@@ -1,0 +1,12 @@
+{
+  "User": "user",
+  "Password": "pass",
+  "Botname": "NephBot",
+  "Owner": "NephBot",
+  "Org": "",
+  "Dimension": 1,
+  "Host": "NephBot",
+  "Database": "localhost",
+  "DbUser": "NephBot",
+  "DbPassword": "NephBot"
+}
