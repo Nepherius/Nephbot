@@ -1,4 +1,4 @@
-var timestamp = require('console-stamp')(console, '[dd.mm.yyyy HH:MM:ss.l]');
+var timestamp = require('console-stamp')(console, '[dd.mm.yyyy HH:MM:ss.l]')
 var fs = require('fs')
 var assert = require('assert')
 var pack = require('./system/pack')
@@ -8,12 +8,12 @@ var handle = connect.handle
 var s = connect.s
 var events = require('events')
 var Q = require('q')
-var parseString = require('xml2js').parseString;
+var parseString = require('xml2js').parseString
 var util = require('util')
-var express = require('express');
+var express = require('express')
 var request = require('request')
-var buffertools = require('buffertools');
-var mysql      = require('mysql');
+var buffertools = require('buffertools')
+var mysql      = require('mysql')
 
 
 // Import Commands
@@ -230,7 +230,7 @@ handle[auth.AOCP.BUDDY_ADD] = function (data, u) { // handles online/offline sta
 		} else if (userStatus === 'offline') {
 			buddyStatus.emit('offline', userId, userStatus)
 		}   
-	}, 1000)
+	}, 500)
    
 }
 
@@ -705,89 +705,3 @@ privgrp.on('part', function(userId) {
 		connection.release()
 	})	
 })	
-// CORE STUFF
-
-
-global.connectdb = function()
-{
-	 return Q.ninvoke(pool, 'getConnection').fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}
- 
-global.query = function(connection,sql) {
-		return Q.ninvoke(connection, 'query',sql ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
-global.getUserName = function(connection, userId) {
-		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE `charid` = ' + userId  ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
-global.getUserId = function(connection, userName) {
-		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE name = "' + userName + '"' ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
-
-	
-global.die = function(msg) {
-    if (msg) {
-        console.log(msg)
-    }
-    s.removeAllListeners()
-    process.exit()
-}
-
-global.checkAccess = function(userId) {
-        var defer = Q.defer()
-        connectdb().done(function (connection) {
-            query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
-				if (result[0].length > 0 ) {
-                    var access = result[0][0].level
-                    defer.resolve(access)
-                    return access
-                } else {
-                    query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
-                        if (result[0].length > 0 ) {
-                            var access = 1 
-                            defer.resolve(access)
-                            return access
-                        } else {
-							var access = 0
-                            defer.resolve(access)
-                            return access
-                        }                              
-                    })
-                }      
-            })
-			connection.release()
-        })
-        return defer.promise   
-}
-
-// TOOLS
-
-// Blob
-
-global.blob = function (name, content) {
-  return '<a href=\'text://'  +  content.replace("'", "`") + '\'>' + name + '</a>'
-	
-}	
-
-global.tellBlob = function (user, content, link) {
-  return '<a href=\"chatcmd:///tell ' + user + ' ' + content.replace("'", "`") + '\">' + link + '</a>'
- }
-
-global.itemref = function (lowid,highid,ql, name) {
-	return  "<a href=\"itemref://" + lowid + "/" + highid + "/" + ql + "\">" + name.replace("'", "`") + "</a>"
-} 	

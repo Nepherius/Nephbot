@@ -1,10 +1,10 @@
-var fs = require('fs');
-var prompt = require('prompt');
+var fs = require('fs')
+var prompt = require('prompt')
 var spawn = require('child_process').spawn
 var connect = require('./system/connect')
 var main = require('./main')
 var start = startBot
-var mysql = require('mysql');
+var mysql = require('mysql')
 
 
 

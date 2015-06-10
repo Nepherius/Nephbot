@@ -103,19 +103,19 @@ var commands = {
 					userName = capitalize(userName[0].toLowerCase())
 					
 					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name ="' + connection.escape(userName) + '"').done(function(result) {
+						query(connection,'SELECT * FROM admins WHERE name =' + connection.escape(userName)).done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
 								if (result[0][0].level >= 4) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already an admin')
 									connection.release()
 								} else {
-									query(connection,'UPDATE admins SET level = 4 WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
+									query(connection,'UPDATE admins SET level = 4 WHERE name = ' + connection.escape(userName)).done(function(result) {
 										send_MESSAGE_PRIVATE(userId, 'Promoted ' + userName + ' to admin')
 										connection.release()
 									})	
 								}	
 							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + connection.escape(userName) + '",' + 4 + ',"admin")').done(function(result) {
+								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',' + connection.escape(userName) + ',' + 4 + ',"admin")').done(function(result) {
 									send_BUDDY_ADD(idResult)
 									send_MESSAGE_PRIVATE(userId, userName + ' is now an admin')
 									connection.release()
@@ -140,7 +140,7 @@ var commands = {
 				} else {	
 					userName = capitalize(userName[0].toLowerCase())
 					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name ="' + connection.escape(userName) + '"').done(function(result) {
+						query(connection,'SELECT * FROM admins WHERE name =' + connection.escape(userName)).done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
 								if (result[0][0].level == 3) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a moderator')
@@ -153,7 +153,7 @@ var commands = {
 									connection.release() // just to be safe
 								}	
 							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',"' + connection.escape(userName) + '",' + 3 + ',"moderator")').done(function(result) {
+								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',' + connection.escape(userName) + ',' + 3 + ',"moderator")').done(function(result) {
 									send_BUDDY_ADD(idResult)
 									send_MESSAGE_PRIVATE(userId, userName + ' is now a moderator')
 									connection.release()
@@ -173,13 +173,13 @@ var commands = {
 		if (userName !== undefined) {	
 			userName = capitalize(userName[0].toLowerCase())
 			connectdb().done(function (connection) { 	
-				query(connection,'SELECT * FROM admins WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
+				query(connection,'SELECT * FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not an admin')
 						connection.release()
 					} else {
 						adminCharId = result[0][0].charid
-						query(connection,'DELETE FROM admins WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
+						query(connection,'DELETE FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
 						send_BUDDY_REMOVE(adminCharId)
 						send_MESSAGE_PRIVATE(userId, userName + ' is no longer an admin')
 						connection.release()									
@@ -201,12 +201,12 @@ var commands = {
 				} else {
 					userName = capitalize(userName[0].toLowerCase())					
 					connectdb().done(function(connection) {
-						query(connection,'SELECT * FROM members WHERE name = "' + connection.escape(userName) + '"').done(function (result) {
+						query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function (result) {
 							if (result[0].length !== 0) { //first check if player is already an admin 
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a member')
 									connection.release()
 							} else {	
-								query(connection,'INSERT INTO members (charId, name) VALUES (' + idResult + ',"' + connection.escape(userName) + '")').done(function() {
+								query(connection,'INSERT INTO members (charId, name) VALUES (' + idResult + ',' + connection.escape(userName) + ')').done(function() {
 								send_MESSAGE_PRIVATE(userId, 'Added ' + userName + ' to member list')
 								connection.release()	
 								})
@@ -225,12 +225,12 @@ var commands = {
 		if (userName !== undefined) {	
 			userName = capitalize(userName[0].toLowerCase())
 			connectdb().done(function(connection) {
-				query(connection,'SELECT * FROM members WHERE name = "' + connection.escape(userName) + '"').done(function(result) {
+				query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not a member of this bot')
 						connection.release()
 					}	else {	
-						query(connection,'DELETE FROM members WHERE name = "' + connection.escape(userName) + '"').done(function () {
+						query(connection,'DELETE FROM members WHERE name = ' + connection.escape(userName) ).done(function () {
 							send_MESSAGE_PRIVATE(userId, userName + ' is no longer a member of this bot')
 							connection.release()	
 						})	
@@ -375,6 +375,119 @@ var commands = {
 			connection.release()
 		})
 	},
+	admins : function (userId) {
+		connectdb().done(function(connection) {
+			query(connection, 'SELECT * from admins ORDER BY "name" ASC').done(function(result) {
+				adminsResult = '<center><font color=#FFFF00>:: Admins ::</font></center><br>'
+					query(connection, 'SELECT * from online').done(function(result2) {
+						on = ''
+						for (i = 0; i < result2[0].length; i++) {
+							on += result2[0][i].name + ' '
+						}	
+						
+						for (i = 0; i < result[0].length; i++) {
+							if (on.indexOf(result[0][i].name.replace(/\'/gm,'')) >= 0 ) {
+								adminsResult += '<font color=#00FF00>' + result[0][i].name + ' </font> \n' 
+							} else {
+								adminsResult += '<font color=#FF0000>' + result[0][i].name + ' </font> \n' 
+							}	
+								
+						}	
+						send_MESSAGE_PRIVATE(userId, blob('Admins',adminsResult.replace(/\'/gm,'')))
+					})
+				connection.release()
+			})
+			
+		})
+	},
+	alts : function(userId,args) {
+		connectdb().done(function(connection) {
+			getUserName(connection,userId).done(function(result) {
+				userName = result[0][0].name
+				if (!args) {
+					query(connection, 'SELECT * FROM alts WHERE main = "' + userName + '"').done(function(result) {
+						if (result[0].length > 0) {
+							altList = '<center> <font color=#FFFF00> ::: Alts of ' + userName + '::: </font> </center> \n\n'
+							for (i = 0; i < result[0].length; i++) {
+								altList += result[0][i].alt + '\n'	
+							}	
+							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + userName + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
+							connection.release()
+						} else {
+							send_MESSAGE_PRIVATE(userId, 'You have no alts registered.')
+							connection.release()
+						}
+					})	
+				}	else if (args[0] == 'add') {
+					if (args[1] !== undefined) {
+						commands.lookupUserName(args[1]).then(function (idResult) {
+							if (idResult === -1) {
+							send_MESSAGE_PRIVATE(userId,'Invalid character name')
+							connection.release()
+							} else {
+								query(connection,'SELECT * FROM alts WHERE alt = ' + connection.escape(args[1])).done(function(result) {
+									if (result[0].length > 0) {
+										send_MESSAGE_PRIVATE(userId, result[0][0].alt + ' is already registered as an alt to ' + result[0][0].main)
+										connection.release()
+									} else { // Check if current character is an alt as well
+										query(connection,'SELECT * FROM alts WHERE alt = "' + userName + '"').done(function(result) {
+											if (result[0].length > 0) {
+												query(connection,'INSERT INTO alts (main,alt) VALUES ("' + result[0][0].main + '","' + connection.escape(capitalize(args[1].toLowerCase())) + '")').done(function() {
+													send_MESSAGE_PRIVATE(userId, 'Successfully added ' + args[1] + ' as your alt') 
+													connection.release()
+												})
+											} else {
+												query(connection,'INSERT INTO alts (main,alt) VALUES ("' + userName + '","' + connection.escape(capitalize(args[1].toLowerCase())) + '")').done(function() {
+													send_MESSAGE_PRIVATE(userId, 'Successfully added ' + args[1] + ' as your alt.') 
+													connection.release()
+												})
+											}	
+										})
+									}
+																		
+								})								
+							}	
+						})		
+					} else {
+						send_MESSAGE_PRIVATE(userId, 'Usage: !alts add name')
+						connection.release()
+					}
+				} else if (args[0] == 'del') {
+					if (!args[1]) {
+						send_MESSAGE_PRIVATE(userId, 'Usage: !alts del name')
+						connection.release()
+						return	
+					}	
+					query(connection,'SELECT * FROM alts WHERE alt = "' + connection.escape(args[1]) + '" AND main = "' + userName + '"' ).done(function(result) {
+						if (result[0].length > 0) {
+							query(connection, 'DELETE FROM alts WHERE alt = ' + connection.escape(args[1])).done(function() {
+							send_MESSAGE_PRIVATE(userId, args[1] + ' is no longer registered as your alt.')	
+							connection.release()
+						})
+						} else {
+							send_MESSAGE_PRIVATE(userId, args[1] + ' was not found in your alt list.')
+							connection.release()
+						}
+					})
+				}  else {
+				 // Add prof/level/ai level to result
+					query(connection, 'SELECT * FROM alts WHERE main = ' + connection.escape(args[0])).done(function(result) {
+						if (result[0].length > 0) {
+							altList = '<center> <font color=#FFFF00> ::: Alts of ' + args[0] + '::: </font> </center> \n\n'
+							for (i = 0; i < result[0].length; i++) {
+								altList += result[0][i].alt + '\n'	
+							}	
+							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + args[0] + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
+							connection.release()
+						} else {
+							send_MESSAGE_PRIVATE(userId, 'You have no alts registered.')
+							connection.release()
+						}
+					})
+				}				
+			})
+		})
+	},	
 	shutdown : function	(userId) {
 		if (ORG !== false) {
 			send_GROUP_MESSAGE('Shutting Down')
@@ -433,3 +546,91 @@ helpCmd.invite = 'To invite a player to the channel use: !invite \'player\'' // 
 
 // Create an instance of Cmd.
 global.cmd = new Cmd(helpCmd, commands);
+
+//Globals
+
+// CORE STUFF
+
+global.connectdb = function()
+{
+	 return Q.ninvoke(pool, 'getConnection').fail(function (err, connection)
+        {
+        console.log(err)
+        connection.release()
+        })
+}
+ 
+global.query = function(connection,sql) {
+		return Q.ninvoke(connection, 'query',sql ).fail(function (err, connection)
+        {
+        console.log(err)
+        connection.release()
+        })
+}	
+global.getUserName = function(connection, userId) {
+		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE `charid` = ' + userId  ).fail(function (err, connection)
+        {
+        console.log(err)
+        connection.release()
+        })
+}	
+global.getUserId = function(connection, userName) {
+		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE name = "' + userName + '"' ).fail(function (err, connection)
+        {
+        console.log(err)
+        connection.release()
+        })
+}	
+
+	
+global.die = function(msg) {
+    if (msg) {
+        console.log(msg)
+    }
+    s.removeAllListeners()
+    process.exit()
+}
+
+global.checkAccess = function(userId) {
+        var defer = Q.defer()
+        connectdb().done(function (connection) {
+            query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
+				if (result[0].length > 0 ) {
+                    var access = result[0][0].level
+                    defer.resolve(access)
+                    return access
+                } else {
+                    query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
+                        if (result[0].length > 0 ) {
+                            var access = 1 
+                            defer.resolve(access)
+                            return access
+                        } else {
+							var access = 0
+                            defer.resolve(access)
+                            return access
+                        }                              
+                    })
+                }      
+            })
+			
+        })
+        return defer.promise   
+}
+
+// TOOLS
+
+// Blobs
+
+global.blob = function (name, content) {
+  return '<a href=\'text://'  +  content.replace("'", "`") + '\'>' + name + '</a>'
+	
+}	
+
+global.tellBlob = function (user, content, link) {
+  return '<a href=\"chatcmd:///tell ' + user + ' ' + content.replace("'", "`") + '\">' + link + '</a>'
+ }
+
+global.itemref = function (lowid,highid,ql, name) {
+	return  "<a href=\"itemref://" + lowid + "/" + highid + "/" + ql + "\">" + name.replace("'", "`") + "</a>"
+} 	
