@@ -5,6 +5,7 @@ var connect = require('./system/connect')
 var main = require('./main')
 var start = startBot
 var mysql = require('mysql')
+var capitalize = require('underscore.string/capitalize')
 
 
 
@@ -46,7 +47,7 @@ fs.stat('./settings/config.json', function(err, stat) {
 		global.Login = configData.User
 		global.Pass = configData.Password
 		global.Botname = configData.Botname
-		global.Owner = config.Owner
+		global.Owner = configData.Owner
 		if(configData.Org) {
 			global.ORG = configData.Org
 		} else {
@@ -54,14 +55,15 @@ fs.stat('./settings/config.json', function(err, stat) {
 		}	
 		start(HOST,PORT)
 	} else {
+		console.log('Creating Config \n')
 		prompt.start()
 		prompt.get(schema, function (err, result) {
 			var config = {
 				// Login Info
 				User: result.user,
 				Password: result.password,
-				Botname: result.botname,
-				Owner : result.owner,
+				Botname: capitalize(result.botname.toLowerCase()),
+				Owner : capitalize(result.owner.toLowerCase()),
 				Org: result.org,
 				Dimension: result.dimension,
 				
