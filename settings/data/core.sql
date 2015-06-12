@@ -1,5 +1,9 @@
-CREATE TABLE IF NOT EXISTS admins (charid int(30) NOT NULL, name varchar(30) NOT NULL, rank varchar(30) NOT NULL, level int(11) NOT NULL);
-ALTER TABLE admins ADD UNIQUE KEY charid (charid);
+CREATE TABLE IF NOT EXISTS `admins` (
+  `charid` int(30) NOT NULL,
+  `name` varchar(30) NOT NULL,
+  `rank` varchar(30) NOT NULL,
+  `level` int(11) NOT NULL
+);
 CREATE TABLE IF NOT EXISTS alts (main varchar(30) NOT NULL,alt varchar(30) NOT NULL);
 CREATE TABLE IF NOT EXISTS channel (charid int(11) NOT NULL,name varchar(30) NOT NULL,afk varchar(11) NOT NULL);
 CREATE TABLE IF NOT EXISTS members ( charid int(30) NOT NULL,name varchar(30) NOT NULL,points decimal(10,2) NOT NULL,in_chat int(10) NOT NULL, banned int(10) NOT NULL); 
