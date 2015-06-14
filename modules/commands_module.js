@@ -2,8 +2,8 @@ var assert = require('assert')
 var util = require('util')
 var events = require('events')
 var Q = require('q')
-var express = require('express');
-var mysql = require('mysql');
+var express = require('express')
+var mysql = require('mysql')
 var _ = require('underscore')
 var capitalize = require('underscore.string/capitalize')
 
@@ -13,7 +13,6 @@ var raid_module = require('./raid_module.js')
 var test_module = require('./test_module.js')
 var items_module = require('./items_module.js')
 var bossloot_module = require('./bossloot_module.js')
-
 
 var commands = {
     lookupUserName: function (userName) {
@@ -35,22 +34,38 @@ var commands = {
                 (idResult !== -1) ? (send_PRIVGRP_INVITE(idResult), send_MESSAGE_PRIVATE(userId, 'Invited ' + userName + ' to this channel')) : send_MESSAGE_PRIVATE(userId, 'Username not found')
             })
         } else {
-
-            send_PRIVGRP_INVITE(userId);
+            send_PRIVGRP_INVITE(userId)
         }
     },
-    join: function (userId, userName) {
-        send_PRIVGRP_INVITE(userId);
-    },
+    join: function (userId) {
+        connectdb().done(function(connection) {
+			query(connection, 'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
+			if (result[0].length !== 0) {
+				send_PRIVGRP_INVITE(userId)
+				connection.release()	
+			} else {
+				query(connection, 'SELECT * FROM cmdcfg WHERE cmd = "register"').done(function(result) {
+					if (result[0][0].status === "enabled") {
+						send_MESSAGE_PRIVATE(userId, 'You have to !register first')
+						connection.release()
+					} else {
+						send_MESSAGE_PRIVATE(userId, 'You are not a member')
+						connection.release()	
+					}	
+				})				
+			}	
+			})			
+		})
+	},
 
 
     kick: function (userId, userName) {
-        if (userName !== undefined) { // Check user access
+        if (userName !== undefined) {
             commands.lookupUserName(userName).then(function (idResult) {
                 (idResult !== -1) ? (send_PRIVGRP_KICK(idResult), send_MESSAGE_PRIVATE(userId, 'Kicked ' + userName + ' from this channel')) : send_MESSAGE_PRIVATE(userId, 'Username not found')
             })
         } else {
-            send_PRIVGRP_KICK(userId);
+            send_PRIVGRP_KICK(userId)
         }
 
     },
@@ -75,7 +90,7 @@ var commands = {
 
 	
 	cmdlist : function (userId) {
-		cmdList = [];
+		cmdList = []
 		for (key in cmd) {
 			if (!(key.match(/cmdlist/i)  || key.match(/lookupUserName/i))) {
 				cmdList.push(key)
@@ -86,7 +101,7 @@ var commands = {
 		for (i = 0; i < cmdList.length; i++) {
 			printCmdList += '<a href=\'chatcmd:///tell ' + Botname + ((cmdList[i].match(/help/)) ? ' ' : ' help ') + cmdList[i] + '\'>' + cmdList[i] + '</a>' + "\n"
 		}
-		send_MESSAGE_PRIVATE(userId, '<a href="text://' + printCmdList + '">Command List</a>' );
+		send_MESSAGE_PRIVATE(userId, '<a href="text://' + printCmdList + '">Command List</a>' )
 	},
 
 
@@ -140,7 +155,7 @@ var commands = {
 				} else {	
 					userName = capitalize(userName[0].toLowerCase())
 					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name =' + connection.escape(userName)).done(function(result) {
+						query(connection,'SELECT * FROM admins WHERE name = ?', [userName]).done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
 								if (result[0][0].level == 3) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a moderator')
@@ -202,7 +217,7 @@ var commands = {
 					userName = capitalize(userName[0].toLowerCase())					
 					connectdb().done(function(connection) {
 						query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function (result) {
-							if (result[0].length !== 0) { //first check if player is already an admin 
+							if (result[0].length !== 0) {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a member')
 									connection.release()
 							} else {	
@@ -368,7 +383,7 @@ var commands = {
 						}	
 					}	
 					
-					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  );
+					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  )
 				})		
 			
 				
@@ -496,7 +511,7 @@ var commands = {
 		}	
 		die('Shutting down')
 	}
-};
+}
 
 //General
 commands.whois = whois
@@ -515,7 +530,6 @@ commands.s7 = s7
 commands.s13 = s13
 commands.s42 = s42
 
-
 commands.test = test
 // Export commands to bot.js
 module.exports = commands
@@ -530,13 +544,13 @@ function Cmd(helpInfo, commands) {
         } else if (helpInfo.hasOwnProperty(helpTopic)) {
             send_MESSAGE_PRIVATE(replyTo, helpInfo[helpTopic])
         } else {
-            send_MESSAGE_PRIVATE(replyTo, 'Requested topic not found');
+            send_MESSAGE_PRIVATE(replyTo, 'Requested topic not found')
         }
     };
 
     for (functionName in commands) {
         if (commands.hasOwnProperty(functionName)) {
-            this[functionName] = commands[functionName];
+            this[functionName] = commands[functionName]
         }
     }
 }
@@ -545,7 +559,7 @@ var helpCmd = {}
 helpCmd.invite = 'To invite a player to the channel use: !invite \'player\'' // a lonely example
 
 // Create an instance of Cmd.
-global.cmd = new Cmd(helpCmd, commands);
+global.cmd = new Cmd(helpCmd, commands)
 
 //Globals
 
@@ -560,13 +574,7 @@ global.connectdb = function()
         })
 }
  
-global.query = function(connection,sql) {
-		return Q.ninvoke(connection, 'query',sql ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
+	
 global.getUserName = function(connection, userId) {
 		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE `charid` = ' + userId  ).fail(function (err, connection)
         {
@@ -582,6 +590,14 @@ global.getUserId = function(connection, userName) {
         })
 }	
 
+global.query = function(connection) {
+		return Q.npost(connection, 'query', Array.prototype.slice.call(arguments, 1)).fail(function (err, connection) {
+			console.log(err)
+			connection.release()
+		})	
+}	
+   
+
 	
 global.die = function(msg) {
     if (msg) {
@@ -594,27 +610,35 @@ global.die = function(msg) {
 global.checkAccess = function(userId) {
         var defer = Q.defer()
         connectdb().done(function (connection) {
-            query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
-				if (result[0].length > 0 ) {
-                    var access = result[0][0].level
-                    defer.resolve(access)
-                    return access
-                } else {
-                    query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
-                        if (result[0].length > 0 ) {
-                            var access = 1 
-                            defer.resolve(access)
-                            return access
-                        } else {
-							var access = 0
-                            defer.resolve(access)
-                            return access
-                        }                              
-                    })
-                }      
-            })
-			
-        })
+            getUserName(connection,userId).done(function(result) {
+			userName = result[0][0].name
+				if (userName === Owner) {
+					var access = 5
+					defer.resolve(access)
+					return access
+				} else { 
+					query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
+						if (result[0].length > 0 ) {
+							var access = result[0][0].level
+							defer.resolve(access)
+							return access
+						} else {
+							query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
+								if (result[0].length > 0 ) {
+									var access = 1 
+									defer.resolve(access)
+									return access
+								} else {
+									var access = 0
+									defer.resolve(access)
+									return access
+								}                              
+							})
+						}      
+					})
+				}	
+			})
+		})
         return defer.promise   
 }
 
