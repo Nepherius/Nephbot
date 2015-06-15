@@ -64,7 +64,7 @@ handle[auth.AOCP.LOGIN_CHARLIST] = function (data) {
             console.log(Botname + ' Found')
             var i = Object.keys(chars).indexOf(key)
             global.botId = chars[Object.keys(chars)[i]].id
-            break;
+            break
         }
     }
     if (!botId) {
@@ -94,6 +94,7 @@ handle[auth.AOCP.LOGIN_OK] = function () {
 		query(connection,'DELETE FROM raidforce')
 		query(connection,'INSERT INTO uptime (start) VALUES (UNIX_TIMESTAMP(NOW()))')
 		connection.release()
+		
 	})
 }
 
@@ -230,7 +231,7 @@ handle[auth.AOCP.BUDDY_ADD] = function (data, u) { // handles online/offline sta
 		} else if (userStatus === 'offline') {
 			buddyStatus.emit('offline', userId, userStatus)
 		}   
-	}, 500)
+	}, 1000)
    
 }
 
@@ -256,7 +257,7 @@ handle[auth.AOCP.CLIENT_LOOKUP] = function (data, u) {
     var userId = u.I()
     var userName = u.S()
     u.done()
-    var idResult = userId;
+    var idResult = userId
     outstandingLookups.emit(userName, idResult)
 }
 
@@ -399,7 +400,7 @@ handle[auth.AOCP_GROUP_ANNOUNCE] = function (data, u) {
     var text1 = u.S()
     var digit = u.I()
     var text2 = u.S()
-    u.done();
+    u.done()
     console.log("Group Announce")
     console.log({
         buffer: buffer,
@@ -549,7 +550,7 @@ incMessage.on('pm', function (userId, message) {
 												}
 											}, 500)
 										} else {	
-											send_MESSAGE_PRIVATE(userId, 'Access denied');
+											send_MESSAGE_PRIVATE(userId, 'Access denied')
 											connection.release()
 											
 										}
@@ -560,7 +561,7 @@ incMessage.on('pm', function (userId, message) {
 							})
 							})
 					} else {
-						send_MESSAGE_PRIVATE(userId, 'Command not found');
+						send_MESSAGE_PRIVATE(userId, 'Command not found')
 						connection.release()
 					}
 				}
@@ -597,7 +598,7 @@ incMessage.on('grp', function (userId, message) {
                                 }
                             }, 500)
                         } else {
-                            send_MESSAGE_PRIVATE(userId, 'Access denied');
+                            send_MESSAGE_PRIVATE(userId, 'Access denied')
                             connection.release()
                         }
                     } else {
@@ -609,7 +610,7 @@ incMessage.on('grp', function (userId, message) {
             })
         })
     } else if (message[0].match(/\!/)) {
-        send_MESSAGE_PRIVATE(userId, 'Command not found');
+        send_MESSAGE_PRIVATE(userId, 'Command not found')
     }
 })
 
@@ -623,7 +624,6 @@ incMessage.on('org', function (userId, message) {
                     if (result2[0].length === 0 || result2[0].length > 0 && result2[0][0].status === 'enabled') {
                         if (result2[0].length === 0 || result2[0][0].access_req <= userAc) {
                             console.log('User acc' + userAc)
-
                             setTimeout(function () {
                                 if (message.split(' ').length === 1) {
                                     cmd[message.replace(commandPrefix, '').toLowerCase()](userId)
@@ -637,7 +637,7 @@ incMessage.on('org', function (userId, message) {
                                 }
                             }, 500)
                         } else {
-                            send_MESSAGE_PRIVATE(userId, 'Access denied');
+                            send_MESSAGE_PRIVATE(userId, 'Access denied')
                             connection.release()
                         }
                     } else {
@@ -649,7 +649,7 @@ incMessage.on('org', function (userId, message) {
             })
         })
     } else if (message[0].match(/\!/)) {
-        send_MESSAGE_PRIVATE(userId, 'Command not found');
+        send_MESSAGE_PRIVATE(userId, 'Command not found')
     }
 })	
 
@@ -667,7 +667,7 @@ buddyStatus.on('online', function (userId, userStatus) {
 
 buddyStatus.on('offline', function (userId, userStatus) { 
 	connectdb().done(function (connection) {
-		query(connection,'SELECT * FROM online').done(function(result) {
+		query(connection,'SELECT * FROM online WHERE charid = ' + userId).done(function(result) {
 			if (result[0].length > 0) {
 				query(connection,'DELETE FROM online WHERE charid = ' + userId).done(function () {
 				console.log(result[0][0].name + ' logged off') // send to org channel or group channel	
@@ -687,6 +687,7 @@ privgrp.on('join', function(userId) {
 				
 			})
 		})
+		cmd.register(userId)
 		connection.release()
 	})	
 })

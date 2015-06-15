@@ -13,6 +13,7 @@ var raid_module = require('./raid_module.js')
 var test_module = require('./test_module.js')
 var items_module = require('./items_module.js')
 var bossloot_module = require('./bossloot_module.js')
+var quicksetup_module = require('./quicksetup_module.js')
 
 var commands = {
     lookupUserName: function (userName) {
@@ -516,6 +517,7 @@ var commands = {
 //General
 commands.whois = whois
 commands.items = items
+commands.quicksetup = quicksetup
 //Raid
 commands.raid = raid
 commands.bid = bid
