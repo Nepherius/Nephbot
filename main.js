@@ -687,7 +687,12 @@ privgrp.on('join', function(userId) {
 				
 			})
 		})
-		cmd.register(userId)
+		query(connection, 'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
+			if (result[0].length === 0) {
+				console.log(result[0])
+				cmd.register(userId)
+			} 
+		})
 		connection.release()
 	})	
 })
