@@ -1,4 +1,12 @@
-CREATE TABLE IF NOT EXISTS cmdcfg (id int(11) NOT NULL,module varchar(50) NOT NULL,cmd varchar(50) NOT NULL,access_req int(20) NOT NULL DEFAULT '0',options varchar(50) NOT NULL,description varchar(75) NOT NULL, status varchar(50) NOT NULL DEFAULT 'enabled')
+CREATE TABLE IF NOT EXISTS `cmdcfg` (
+  `id` int(11) NOT NULL,
+  `module` varchar(50) NOT NULL,
+  `cmd` varchar(50) NOT NULL,
+  `access_req` int(20) NOT NULL DEFAULT '0',
+  `options` varchar(50) NOT NULL,
+  `description` varchar(75) NOT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'enabled'
+);
 ALTER TABLE cmdcfg ADD PRIMARY KEY (id);
 INSERT INTO `cmdcfg` VALUES (1, 'Core', 'addadmin', 4, '', 'Adds a bot admin', 'enabled');
 INSERT INTO `cmdcfg` VALUES (2, 'Core', 'addmember', 3, '', 'Add player to member list', 'enabled');
@@ -18,7 +26,7 @@ INSERT INTO `cmdcfg` VALUES (15, 'Whois', 'whois', 0, '', 'Show character info',
 INSERT INTO `cmdcfg` VALUES (16, 'Raid', 'start', 3, '', 'Start raid', 'enabled');
 INSERT INTO `cmdcfg` VALUES (17, 'Raid', 'stop', 3, '', 'Stop raid', 'enabled');
 INSERT INTO `cmdcfg` VALUES (18, 'Core', '12m', 1, '', '12m Loot List', 'enabled');
-INSERT INTO `cmdcfg` VALUES (19, 'Raid', 'rem', 3, '', 'Remove player from flatroll.', 'enabled');
+INSERT INTO `cmdcfg` VALUES (19, 'Core', 'quicksetup', 5, '', 'Change bot settings', 'enabled');
 INSERT INTO `cmdcfg` VALUES (20, 'Core', 'admins', 1, '', 'Show list of bot admins', 'enabled');
 INSERT INTO `cmdcfg` VALUES (21, 'Core', 'alts', 1, '', 'Add/Del/List player alts', 'enabled');
 INSERT INTO `cmdcfg` VALUES (22, 'Core', 'shutdown', 4, '', 'Shut down bot', 'enabled');
