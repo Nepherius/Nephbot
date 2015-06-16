@@ -548,6 +548,44 @@ var commands = {
 			send_PRIVGRP_MESSAGE(botId,'Shutting Down')
 		}	
 		die('Shutting down')
+	},
+	lock : function(userId) {
+		connectdb().done(function(connection) {
+			getUserName(connection,userId).done(function(result) {
+				userName = result[0][0].name
+				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
+					if (result[0][0].access_req >= 3) {
+						send_MESSAGE_PRIVATE(userId, 'Channel is already locked')
+						connection.release()
+					} else {	
+						query(connection, 'UPDATE cmdcfg SET access_req = 3 WHERE module = "Core" and cmd = "join"').done(function() {
+							send_MESSAGE_PRIVATE(userId, 'Channel is now locked')
+							send_PRIVGRP_MESSAGE(botId, userName + ' locked the channel')
+							connection.release()
+						})
+					}
+				})
+			})			
+		})		
+	},
+	unlock : function(userId) {
+		connectdb().done(function(connection) {
+			getUserName(connection,userId).done(function(result) {
+				userName = result[0][0].name
+				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
+					if (result[0][0].access_req === 0) {
+						send_MESSAGE_PRIVATE(userId, 'Channel is already unlocked')
+						connection.release()
+					} else {	
+						query(connection, 'UPDATE cmdcfg SET access_req = 0 WHERE module = "Core" and cmd = "join"').done(function() {
+							send_MESSAGE_PRIVATE(userId, 'Channel is now unlocked')
+							send_PRIVGRP_MESSAGE(botId, userName + ' unlocked the channel')
+							connection.release()
+						})
+					}
+				})
+			})			
+		})		
 	}
 }
 
