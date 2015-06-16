@@ -14,6 +14,7 @@ var test_module = require('./test_module.js')
 var items_module = require('./items_module.js')
 var bossloot_module = require('./bossloot_module.js')
 var quicksetup_module = require('./quicksetup_module.js')
+var getroster_module = require('./getroster_module.js')
 
 var commands = {
     lookupUserName: function (userName) {
@@ -222,10 +223,12 @@ var commands = {
 									send_MESSAGE_PRIVATE(userId, userName + ' is already a member')
 									connection.release()
 							} else {	
-								query(connection,'INSERT INTO members (charId, name) VALUES (' + idResult + ',' + connection.escape(userName) + ')').done(function() {
-								send_MESSAGE_PRIVATE(userId, 'Added ' + userName + ' to member list')
-								connection.release()	
-								})
+								query(connection,'INSERT INTO members (charId, name, main) VALUES (' + idResult + ',"' + userName + '","' + userName +'")').then(function() {
+									return query(connection, 'INSERT INTO points (main) VALUES ("' + userName + '")')
+								}).done(function() {
+									send_MESSAGE_PRIVATE(userId, userName + ' is now a member')
+									connection.release()
+								})	
 							}
 						})
 					
@@ -237,20 +240,31 @@ var commands = {
 			
 		}
 	},
-	delmember: function(userId, userName) {
+	delmember: function(userId, args) {//ADD : Main should not be deletable if it has alts, might break db
 		if (userName !== undefined) {	
-			userName = capitalize(userName[0].toLowerCase())
+			userName = capitalize(args[0].toLowerCase())
 			connectdb().done(function(connection) {
 				query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not a member of this bot')
 						connection.release()
-					}	else {	
-						query(connection,'DELETE FROM members WHERE name = ' + connection.escape(userName) ).done(function () {
-							send_MESSAGE_PRIVATE(userId, userName + ' is no longer a member of this bot')
-							connection.release()	
-						})	
-					}
+					}	else if (!args[1]) {	
+						query(connection,'SELECT * FROM members WHERE main = ?',[userName]).then(function(result) {
+							if (result[0].length > 1) {
+								send_MESSAGE_PRIVATE(userId, userName + ' cannot be deleted as long as he still has alts registered!')
+								connection.release()	
+							} else {
+								return query(connection,'DELETE FROM members WHERE name = ?', [userName]).done(function () {
+									send_MESSAGE_PRIVATE(userId, userName + ' is no longer a member')
+									connection.release()
+								})								
+							}	
+						})
+					} else if (args[1] == 'all')  {
+						query(connection, 'DELETE members,points FROM members INNER JOIN points ON members.main = points.main WHERE members.name = ?', [userName]).done(function() {
+							send_MESSAGE_PRIVATE(userId, userName + '\'s account has been deleted, alts included.')
+						})					
+					}		
 				})
 			})
 		}
@@ -266,27 +280,39 @@ var commands = {
 						connection.release()
 				} else {
 					getUserName(connection,userId).done(function (result) {
-						console.log(result[0][0].name)
-						query(connection,'INSERT INTO members (charId, name) VALUES (' + userId + ',"' + result[0][0].name + '")').done(function() {
+						query(connection,'INSERT INTO members (charId, name, main) VALUES (' + userId + ',"' + result[0][0].name + '","' + result[0][0].name +'")').then(function() {
+							return query(connection, 'INSERT INTO points (main) VALUES ("' + result[0][0].name + '")')
+						}).done(function() {
 							send_MESSAGE_PRIVATE(userId, 'You are now a member')
 							connection.release()
-						})
+						})	
 					})	
 				}	
 			})	
 			
 		})
 	},
-	unregister : function(userId) {
+	unregister : function(userId) { //ADD : Main should not be deletable if it has alts, might break db
 		connectdb().done(function(connection) {
 			query(connection,'SELECT * FROM members WHERE charid = ' + userId).done(function(result) {
 				if (result.length === 0) {
 					send_MESSAGE_PRIVATE(userId, 'You are not a member of this bot')
 					connection.release()
 				}	else {
-					query(connection,'DELETE FROM members WHERE charid = ' + userId).done(function() {
-					send_MESSAGE_PRIVATE(userId,' You are no longer a member of this bot')
-					connection.release()	
+					// Check if char is set as main before deleting
+					getUserName(connection,userId).done(function (result) {
+						userName = result[0][0].name
+						query(connection,'SELECT * FROM members WHERE main = ?',[userName]).then(function(result) {
+							if (result[0].length > 1) {
+								send_MESSAGE_PRIVATE(userId, 'You must delete your alts first.')
+								connection.release()	
+							} else {
+								return query(connection,'DELETE FROM members WHERE charid = ' + userId).done(function () {
+									send_MESSAGE_PRIVATE(userId, 'You are no longer a member')
+									connection.release()
+								})								
+							}	
+						})
 					})	
 				}
 			})	
@@ -416,16 +442,16 @@ var commands = {
 			
 		})
 	},
-	alts : function(userId,args) {
+	alts : function(userId,args) { // Add prof - (level/ai level) to alt list
 		connectdb().done(function(connection) {
 			getUserName(connection,userId).done(function(result) {
 				userName = result[0][0].name
 				if (!args) {
-					query(connection, 'SELECT * FROM alts WHERE main = "' + userName + '"').done(function(result) {
-						if (result[0].length > 0) {
+					query(connection, 'SELECT * FROM members WHERE main = "' + userName + '" ORDER BY "name" ASC').done(function(result) {
+						if (result[0].length > 1) {
 							altList = '<center> <font color=#FFFF00> ::: Alts of ' + userName + '::: </font> </center> \n\n'
 							for (i = 0; i < result[0].length; i++) {
-								altList += result[0][i].alt + '\n'	
+								altList += result[0][i].name + '\n'	
 							}	
 							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + userName + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
 							connection.release()
@@ -441,62 +467,73 @@ var commands = {
 							send_MESSAGE_PRIVATE(userId,'Invalid character name')
 							connection.release()
 							} else {
-								query(connection,'SELECT * FROM alts WHERE alt = ' + connection.escape(args[1])).done(function(result) {
+								alt = capitalize(args[1].toLowerCase())
+								if (userName === alt) {
+									send_MESSAGE_PRIVATE(userId, 'You can\'t add yourself as an alt')	
+									connection.release()
+									return
+								}
+								query(connection,'SELECT * FROM members WHERE name = ?', [alt]).done(function(result) {
 									if (result[0].length > 0) {
-										send_MESSAGE_PRIVATE(userId, result[0][0].alt + ' is already registered as an alt to ' + result[0][0].main)
-										connection.release()
-									} else { // Check if current character is an alt as well
-										query(connection,'SELECT * FROM alts WHERE alt = "' + userName + '"').done(function(result) {
-											if (result[0].length > 0) {
-												query(connection,'INSERT INTO alts (main,alt) VALUES ("' + result[0][0].main + '","' + connection.escape(capitalize(args[1].toLowerCase())) + '")').done(function() {
-													send_MESSAGE_PRIVATE(userId, 'Successfully added ' + args[1] + ' as your alt') 
-													connection.release()
+										if (alt !== result[0][0].main) {
+											send_MESSAGE_PRIVATE(userId, alt + ' is already registered as an alt to ' + result[0][0].main)
+											connection.release()
+										} else {
+											query(connection, 'UPDATE members SET main = "' + userName + '" WHERE name = ?', [alt]).then(function() {
+												return query(connection, 'SELECT * FROM points WHERE main = ?',[alt]).then(function(result) {
+													return query(connection, 'UPDATE points SET points = points +' + result[0][0].points + ' WHERE main = "' + userName + '"').then(function() {
+														return query(connection, 'DELETE FROM points WHERE main = ?', [alt]).done(function() {
+															send_MESSAGE_PRIVATE(userId, alt + ' was registered as an alt, hes points have been added to your account.')
+															connection.release()
+														})
+													})
 												})
-											} else {
-												query(connection,'INSERT INTO alts (main,alt) VALUES ("' + userName + '","' + connection.escape(capitalize(args[1].toLowerCase())) + '")').done(function() {
-													send_MESSAGE_PRIVATE(userId, 'Successfully added ' + args[1] + ' as your alt.') 
-													connection.release()
-												})
-											}	
-										})
+											})	
+										}	
+									} else {
+										send_MESSAGE_PRIVATE(userId, alt + ' is not a member.')
+										connection.release()	
 									}
 																		
 								})								
 							}	
 						})		
 					} else {
-						send_MESSAGE_PRIVATE(userId, 'Usage: !alts add name')
+						send_MESSAGE_PRIVATE(userId, 'Usage: !alts add name.')
 						connection.release()
 					}
 				} else if (args[0] == 'del') {
 					if (!args[1]) {
-						send_MESSAGE_PRIVATE(userId, 'Usage: !alts del name')
+						send_MESSAGE_PRIVATE(userId, 'Usage: !alts del name.')
 						connection.release()
 						return	
 					}	
-					query(connection,'SELECT * FROM alts WHERE alt = "' + connection.escape(args[1]) + '" AND main = "' + userName + '"' ).done(function(result) {
+					alt = capitalize(args[1].toLowerCase())
+					query(connection,'SELECT * FROM members WHERE name = ? AND main = "' + userName + '"', [alt] ).done(function(result) {
 						if (result[0].length > 0) {
-							query(connection, 'DELETE FROM alts WHERE alt = ' + connection.escape(args[1])).done(function() {
-							send_MESSAGE_PRIVATE(userId, args[1] + ' is no longer registered as your alt.')	
-							connection.release()
-						})
+							query(connection, 'UPDATE members SET main = ? WHERE name = "' + alt + '"', [alt]).then(function() {
+								return query(connection, 'INSERT INTO points (main) VALUES (?)',[alt]).done(function() {
+									send_MESSAGE_PRIVATE(userId, alt + ' is no longer registered as your alt.')	
+									connection.release()
+								})
+							})
 						} else {
-							send_MESSAGE_PRIVATE(userId, args[1] + ' was not found in your alt list.')
+							send_MESSAGE_PRIVATE(userId, alt + ' is not registered as your alt.')
 							connection.release()
 						}
 					})
 				}  else {
-				 // Add prof/level/ai level to result
-					query(connection, 'SELECT * FROM alts WHERE main = ' + connection.escape(args[0])).done(function(result) {
-						if (result[0].length > 0) {
-							altList = '<center> <font color=#FFFF00> ::: Alts of ' + args[0] + '::: </font> </center> \n\n'
+				 	alt = capitalize(args[0].toLowerCase())
+					query(connection, 'SELECT * FROM members WHERE main = ? ORDER BY "name" ASC', [alt]).done(function(result) {
+						if (result[0].length > 1) {
+							altList = '<center> <font color=#FFFF00> ::: Alts of ' + alt + '::: </font> </center> \n\n'
 							for (i = 0; i < result[0].length; i++) {
 								altList += result[0][i].alt + '\n'	
 							}	
-							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + args[0] + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
+							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + alt + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
 							connection.release()
 						} else {
-							send_MESSAGE_PRIVATE(userId, 'You have no alts registered.')
+							send_MESSAGE_PRIVATE(userId, alt + ' has no alts registered.')
 							connection.release()
 						}
 					})
@@ -532,6 +569,7 @@ commands.s7 = s7
 commands.s13 = s13
 commands.s42 = s42
 
+commands.getroster = getroster
 commands.test = test
 // Export commands to bot.js
 module.exports = commands
