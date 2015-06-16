@@ -204,21 +204,13 @@ exports.raid = raid  = function(userId, args) {
 											
 											return; 
 										} 
-										
-											query(connection,'UPDATE raidforce SET points = points + ' + args[1]).done(function() {
-											})
-											query(connection, 'SELECT * FROM raidforce').done(function(result) {
-												for (var i = 0; i < result[0].length; i++) {
-													query(connection,'UPDATE members SET points = points + ' + args[1] + ' WHERE name = "' + result[0][i].name + '"').done(function() {
-														send_PRIVGRP_MESSAGE(botId, 'All raid members have been rewarded with ' + args[1] + ' points')
-													})
-													query(connection,'SELECT * FROM members WHERE name = "' + result[0][i].name + '"').done(function(result2) {
-														send_MESSAGE_PRIVATE(result2[0][0].charid,'You now have ' + result2[0][0].points + ' points' )	
-													})
-												}
-											})	
-										
-
+										query(connection,'UPDATE points JOIN members ON members.main = points.main JOIN raidforce ON raidforce.name = members.name SET points.points = points.points + ?, raidforce.points = raidforce.points +  ' + args[1], args[1]).then(function() {
+											return query(connection, 'SELECT members.charid, points.points FROM members JOIN raidforce ON raidforce.name = members.name JOIN points ON points.main = members.main')
+										}).done(function (result) {
+											result[0].forEach(function (row) {
+												send_MESSAGE_PRIVATE(row.charid,'You now have ' + row.points + ' points' ) 
+										   })
+										})   
 									} else {
 										send_MESSAGE_PRIVATE(userId, 'There is no raid running')	
 									}
@@ -230,19 +222,13 @@ exports.raid = raid  = function(userId, args) {
 											
 											return; 
 										} 
-									
-											query(connection,'UPDATE raidforce SET points = points - ' + args[1]).done(function() {
-											})
-											query(connection, 'SELECT * FROM raidforce').done(function(result) {
-												for (var i = 0; i < result[0].length; i++) {
-													query(connection,'UPDATE members SET points = points - ' + args[1] + ' WHERE name = "' + result[0][i].name + '"').done(function() {
-														send_PRIVGRP_MESSAGE(botId, 'Removed ' + args[1] + ' points from all raid members')
-													})
-													query(connection,'SELECT * FROM members WHERE name = "' + result[0][i].name + '"').done(function(result2) {
-														send_MESSAGE_PRIVATE(result2[0][0].charid,'You now have ' + result2[0][0].points + ' points' )	
-													})
-												}
-											})	
+										query(connection,'UPDATE points JOIN members ON members.main = points.main JOIN raidforce ON raidforce.name = members.name SET points.points = points.points - ?, raidforce.points = raidforce.points - ' + args[1], args[1]).then(function() {
+											return query(connection, 'SELECT members.charid, points.points FROM members JOIN raidforce ON raidforce.name = members.name JOIN points ON points.main = members.main')
+										}).done(function (result) {
+											result[0].forEach(function (row) {
+												send_MESSAGE_PRIVATE(row.charid,'You now have ' + row.points + ' points' ) 
+										   })
+										})   
 									
 										} else {
 											send_MESSAGE_PRIVATE(userId, 'There is no raid running')	
@@ -526,7 +512,7 @@ exports.bid = bid = function(userId, args) {
 												connection.release()
 												return									
 								}	
-								query(connection,'SELECT * FROM members WHERE name = "' + userName + '"').done(function(result) {
+								query(connection,'SELECT points FROM points JOIN members ON points.main = members.main WHERE members.name = ?', userName).done(function(result) {
 									if (result[0][0].points >= args[0] ) {
 											currentBid = Number(args[0])
 											if (!maxBid) {
@@ -589,90 +575,93 @@ exports.bid = bid = function(userId, args) {
 
 exports.points = points = function (userId, args) {
 	connectdb().done(function(connection) {	
-		if (!args) {
-			query(connection,'SELECT * FROM members WHERE charid = ' + userId).done(function(result) {
-				if (result[0].length !== 0) {
-					send_MESSAGE_PRIVATE(userId, 'You have ' + result[0][0].points + ' points.')
-					connection.release()
-				} else {
-					send_MESSAGE_PRIVATE(userId,'You need to register first')
-					connection.release()
-				}
-			})
-		} else {
-			if (args[0] === 'add' || args[0] === 'rem') {
-				if (!args[1] && args[2]) {
-					send_MESSAGE_PRIVATE(userId, 'Usage: points add/rem <point amount> user')
-					connection.release()
-					return
-				} else if (isNaN(args[1]) || args[1] <= 0) {
-					send_MESSAGE_PRIVATE(userId, args[1] + ' is not a valid point amount')
-					connection.release()
-					return
-				} else if (!isNaN(args[2])) {
-					send_MESSAGE_PRIVATE(userId, args[1] + ' is not a valid user')
-					connection.release()
-					return
-				}				
-				checkAccess(userId).done(function(result) {
-					userAc = result		
-					access_req(connection, 'points').done(function(result) {
-						if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
-							if (result[0].length === 0 || result[0][0].access_req <= userAc) {
-								getUserId(connection, args[2]).done(function(result) {
-									if (result[0].length !== 0) {
-										if (args[0] === 'add') { 
-											query(connection, 'UPDATE members SET points = points + ' + args[1] + ' WHERE name = "' + args[2] + '"').done(function() { // Maybe log this action
-												send_MESSAGE_PRIVATE(userId, 'Added ' + args[1] + ' points to ' + args[2] + '\`s account')
-												connection.release()	
-											})	
-										} else {
-											query(connection, 'UPDATE members SET points = points - ' + args[1] + ' WHERE name = "' + args[2] + '"').done(function() { // ADD Check that points wont go negative
-												send_MESSAGE_PRIVATE(userId, 'Deducted ' + args[1] + ' points from ' + args[2] + '\`s account')
-												connection.release()
-											})	
-										}	
-									} else {
-										send_MESSAGE_PRIVATE(userId, 'User ' + args[2] + ' not found')
-										connection.release()
-									}									
-								})								
-							} else {	
-								connection.release()
-								send_MESSAGE_PRIVATE(userId, 'Access denied');
-							}
-						} else { 
-							connection.release()
-							send_MESSAGE_PRIVATE(userId, 'Command Disabled')
-						}	
-					})			
-				})	
+		getUserName(connection,userId).done(function(result) {
+			userName = result[0][0].name
+			if (!args) {
+				query(connection,'SELECT points FROM points JOIN members ON points.main = members.main WHERE members.name = ?', [userName]).done(function(result) {
+					if (result[0].length !== 0) {
+						send_MESSAGE_PRIVATE(userId, 'You have ' + result[0][0].points + ' points.')
+						connection.release()
+					} else {
+						send_MESSAGE_PRIVATE(userId,'You are not a member')
+						connection.release()
+					}
+				})
 			} else {
-				checkAccess(userId).done(function(result) {
-					userAc = result		
-					access_req(connection, 'points').done(function(result) {
-						if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
-							if (result[0].length === 0 || result[0][0].access_req <= userAc) {
-								query(connection, 'SELECT * FROM members WHERE name = "' + args[0] + '"').done(function(result) {
-									if (result[0].length !== 0) {
-										send_MESSAGE_PRIVATE(userId, args[0] + ' has ' + result[0][0].points + ' points');
-									} else {
-										send_MESSAGE_PRIVATE(userId, 'User ' + args[0] + ' not found')
-										connection.release()
-									}									
-								})								
-							} else {	
+				if (args[0] === 'add' || args[0] === 'rem') {
+					if (!args[1] && args[2]) {
+						send_MESSAGE_PRIVATE(userId, 'Usage: points add/rem <point amount> user')
+						connection.release()
+						return
+					} else if (isNaN(args[1]) || args[1] <= 0) {
+						send_MESSAGE_PRIVATE(userId, args[1] + ' is not a valid point amount')
+						connection.release()
+						return
+					} else if (!isNaN(args[2])) {
+						send_MESSAGE_PRIVATE(userId, args[1] + ' is not a valid user')
+						connection.release()
+						return
+					}				
+					checkAccess(userId).done(function(result) {
+						userAc = result		
+						access_req(connection, 'points').done(function(result) {
+							if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
+								if (result[0].length === 0 || result[0][0].access_req <= userAc) {
+									getUserId(connection, args[2]).done(function(result) {
+										if (result[0].length !== 0) {
+											if (args[0] === 'add') { 
+												query(connection, 'UPDATE points JOIN members ON members.main = points.main SET points = points + ' + connection.escape(args[1]) + ' WHERE members.name = ' + connection.escape(args[2])).done(function() { //Add Log this
+													send_MESSAGE_PRIVATE(userId, 'Added ' + args[1] + ' points to ' + args[2] + '\`s account')
+													connection.release()	
+												})	
+											} else {
+												query(connection, 'UPDATE points JOIN members ON members.main = points.main SET points = points - ' + connection.escape(args[1]) + ' WHERE members.name = ' + connection.escape(args[2])).done(function() { // ADD Check that points wont go negative
+													send_MESSAGE_PRIVATE(userId, 'Deducted ' + args[1] + ' points from ' + args[2] + '\`s account')
+													connection.release()
+												})	
+											}	
+										} else {
+											send_MESSAGE_PRIVATE(userId, 'User ' + args[2] + ' not found')
+											connection.release()
+										}									
+									})								
+								} else {	
+									connection.release()
+									send_MESSAGE_PRIVATE(userId, 'Access denied');
+								}
+							} else { 
 								connection.release()
-								send_MESSAGE_PRIVATE(userId, 'Access denied');
-							}
-						} else { 
-							connection.release()
-							send_MESSAGE_PRIVATE(userId, 'Command Disabled')
-						}	
-					})			
-				})	
-			}		
-		}
+								send_MESSAGE_PRIVATE(userId, 'Command Disabled')
+							}	
+						})			
+					})	
+				} else {
+					checkAccess(userId).done(function(result) {
+						userAc = result		
+						access_req(connection, 'points').done(function(result) {
+							if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
+								if (result[0].length === 0 || result[0][0].access_req <= userAc) {
+									query(connection, 'SELECT points FROM points JOIN members ON points.main = members.main WHERE members.name = ?', [args[0]]).done(function(result) {
+										if (result[0].length !== 0) {
+											send_MESSAGE_PRIVATE(userId, args[0] + ' has ' + result[0][0].points + ' points');
+										} else {
+											send_MESSAGE_PRIVATE(userId, 'User ' + args[0] + ' not found')
+											connection.release()
+										}									
+									})								
+								} else {	
+									connection.release()
+									send_MESSAGE_PRIVATE(userId, 'Access denied');
+								}
+							} else { 
+								connection.release()
+								send_MESSAGE_PRIVATE(userId, 'Command Disabled')
+							}	
+						})			
+					})	
+				}		
+			}
+	})
 	})
 }
 
@@ -698,7 +687,7 @@ function bidTimer(time) {
 bidTimeOut = setTimeout(function(){ 
 	if (maxBid) {
 	connectdb().done(function(connection) {
-		query(connection, 'UPDATE members SET points = points - ' + leadingBid + ' WHERE name = "' + maxBid.name + '"').done(function() {
+		query(connection, 'UPDATE points JOIN members ON members.main = points.main SET points = points - ' + leadingBid + ' WHERE name = "' + maxBid.name + '"').done(function() {
 			send_PRIVGRP_MESSAGE(botId, maxBid.name + ' won the bid for ' + bidForItem + ', ' + leadingBid + ' points have been deducted from his account.')
 			maxBid = false
 			connection.release()	
