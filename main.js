@@ -13,11 +13,11 @@ var util = require('util')
 var express = require('express')
 var request = require('request')
 var buffertools = require('buffertools')
-var mysql      = require('mysql')
+var mysql = require('mysql')
 
 
 // Import Commands
-var commands = require('./modules/commands_module.js')
+var commands = require('./modules/index.js')
 
 // Define Events
 global.outstandingLookups = new events.EventEmitter()
@@ -550,12 +550,17 @@ incMessage.on('pm', function (userId, message) {
 												}
 											}, 500)
 										} else {	
-											send_MESSAGE_PRIVATE(userId, 'Access denied')
+											if (message.split(' ')[0].toLowerCase() == 'join') {
+												send_MESSAGE_PRIVATE(userId, 'Channel Locked')
+											} else {
+												send_MESSAGE_PRIVATE(userId, 'Access Denied')
+											}
 											connection.release()
-											
 										}
 								} else { 
 								connection.release()
+								if (message.split(' ')[0].toLowerCase() == 'join') {
+								}
 								send_MESSAGE_PRIVATE(userId, 'Command Disabled')
 								}
 							})

@@ -2,14 +2,13 @@ var assert = require('assert')
 var events = require('events')
 var Q = require('q')
 var util = require('util')
-var express = require('express');
-var mysql      = require('mysql');
-var main = require('../main.js');
+var express = require('express')
+var mysql = require('mysql')
+var main = require('../../main')
 var _ = require('underscore')
 var capitalize = require('underscore.string/capitalize')
 
 raidLoot = []
-
 exports.raid = raid  = function(userId, args) {
 	connectdb().done(function(connection) {
 		getUserName(connection,userId).done(function(result) {

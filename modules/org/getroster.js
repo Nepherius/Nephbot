@@ -5,17 +5,18 @@ var util = require('util')
 var express = require('express')
 var request = require('request')
 var parseString = require('xml2js').parseString;
-var commands = require('./commands_module.js')
+var commands = require('../central.js')
 
 // NOT IN USE
-orgId = ''
-exports.getRoster = getRoster = function(userId, args) {
+orgId = '9696'
+exports.getroster = getroster = function(userId, args) {
 
 var t = process.hrtime();
 // ADD: DO whois on Bot Owner to get orgId
+
 	request('http://people.anarchy-online.com/org/stats/d/5/name/' + orgId +  '/basicstats.xml',function (error, response, body) {
 		if (!error && response.statusCode == 200) {
-			send_GROUP_MESSAGE('Downloading Member Roster')
+			//send_GROUP_MESSAGE('Downloading Member Roster')
 			if (body.length > 10) { // check if xml is empty
 			parseString(body, function (err, result) {
 			connectdb().done(function(connection) {
@@ -41,15 +42,15 @@ var t = process.hrtime();
 									console.log(err)
 									connection.release()
 								}
-								connection.release()	
-								}
+									
+							}
 						)
-					commands.lookupUserName(charName.nickname).then(function (idResult) {
-				
+					cmd.lookupUserName(charName.nickname).then(function (idResult) {
+						send_BUDDY_ADD(idResult)
 					})				
 					}	
 					 t = process.hrtime(t);
-				 send_GROUP_MESSAGE('Finished in ' + t[0] + ' seconds and ' + t[1] + ' nanoseconds' )
+				 //send_GROUP_MESSAGE('Finished in ' + t[0] + ' seconds and ' + t[1] + ' nanoseconds' )
 				})
 			})
 		}

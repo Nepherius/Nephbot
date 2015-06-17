@@ -7,15 +7,6 @@ var mysql = require('mysql')
 var _ = require('underscore')
 var capitalize = require('underscore.string/capitalize')
 
-// Import commands
-var whois_module = require('./whois_module.js')
-var raid_module = require('./raid_module.js')
-var test_module = require('./test_module.js')
-var items_module = require('./items_module.js')
-var bossloot_module = require('./bossloot_module.js')
-var quicksetup_module = require('./quicksetup_module.js')
-var getroster_module = require('./getroster_module.js')
-
 var commands = {
     lookupUserName: function (userName) {
         var result = Q.defer()
@@ -589,55 +580,8 @@ var commands = {
 	}
 }
 
-//General
-commands.whois = whois
-commands.items = items
-commands.quicksetup = quicksetup
-//Raid
-commands.raid = raid
-commands.bid = bid
-commands.list = list
-commands.points = points
-commands.add = add
-commands.rem = rem
-commands.flatroll = flatroll
-//Boss Loot
-commands['12m'] = boss12m
-commands.s7 = s7
-commands.s13 = s13
-commands.s42 = s42
 
-commands.getroster = getroster
-commands.test = test
-// Export commands to bot.js
 module.exports = commands
-
-
-// Create & Initiate Cmd
-function Cmd(helpInfo, commands) {
-    var functionName;
-    this.help = function (replyTo, helpTopic) {
-        if (undefined === helpTopic) {
-            send_MESSAGE_PRIVATE(replyTo, 'To Be Added')
-        } else if (helpInfo.hasOwnProperty(helpTopic)) {
-            send_MESSAGE_PRIVATE(replyTo, helpInfo[helpTopic])
-        } else {
-            send_MESSAGE_PRIVATE(replyTo, 'Requested topic not found')
-        }
-    };
-
-    for (functionName in commands) {
-        if (commands.hasOwnProperty(functionName)) {
-            this[functionName] = commands[functionName]
-        }
-    }
-}
-
-var helpCmd = {}
-helpCmd.invite = 'To invite a player to the channel use: !invite \'player\'' // a lonely example
-
-// Create an instance of Cmd.
-global.cmd = new Cmd(helpCmd, commands)
 
 //Globals
 

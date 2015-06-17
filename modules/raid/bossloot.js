@@ -59,7 +59,7 @@ function bossloot(userId, boss) {
 					send_MESSAGE_PRIVATE(userId, 'Loot table not found.') 
 				}
 			})
-			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "gems"').done(function(result) {
+			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "gem"').done(function(result) {
 					if (result[0].length !== 0) {
 					loottable = '<center> <font color=#FFFF00> ::: 12 Man Profession Gems ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
@@ -82,7 +82,7 @@ function bossloot(userId, boss) {
 						loottable += 'Item : ' + result[0][i].name + '\n'
 						loottable += tellBlob(Botname, 'raid loot <a href=itemref://' + result[0][i].lowid + '/' +result[0][i]. highid + '/' + result[0][i].highql + '>' + result[0][i].name + '</a>', 'Add to loot list') + '\n'
 					}	
-					send_MESSAGE_PRIVATE(userId, blob('Loot List', loottable))	
+					send_MESSAGE_PRIVATE(userId, blob('Loot List', loottable.replace(/'/, "`")))	
 				} else {
 					send_MESSAGE_PRIVATE(userId, 'Loot table not found.') 
 				}
