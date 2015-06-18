@@ -88,13 +88,13 @@ handle[auth.AOCP.LOGIN_ERROR] = function (data) {
 handle[auth.AOCP.LOGIN_OK] = function () {
     console.log('Logged On')
 	connectdb().done(function (connection) {
-		query(connection,'DELETE FROM online')
-		query(connection,'DELETE FROM channel')
-		query(connection,'DELETE FROM uptime')
-		query(connection,'DELETE FROM raidforce')
-		query(connection,'INSERT INTO uptime (start) VALUES (UNIX_TIMESTAMP(NOW()))')
-		connection.release()
-		
+		Q.when(query(connection,'DELETE FROM online'),
+			query(connection,'DELETE FROM channel'),
+			query(connection,'DELETE FROM uptime'),
+			query(connection,'DELETE FROM raidforce'),
+			query(connection,'INSERT INTO uptime (start) VALUES (UNIX_TIMESTAMP(NOW()))')).done(function() {
+				connection.release()
+			})
 	})
 }
 
@@ -167,8 +167,7 @@ handle[auth.AOCP.CLIENT_NAME] = function (data, u) {
 
 var backUpWhois = function (connection,userName,userId) {
 	request('https://rubi-ka.net/services/characters.asmx/GetAoCharacterXml?name=' + userName, function (error, response, body) {
-		if (!error && response.statusCode == 200) {
-		if (body.length > 10) { // check if xml is empty
+		if (!error && response.statusCode == 200 && body.length > 10) {
 			parseString(body, function (err, result) {
 				charName = result.character.name[0]
 				charStats = result.character.basic_stats[0]
@@ -208,9 +207,6 @@ var backUpWhois = function (connection,userName,userId) {
 						}
 					)	
 				})
-			} else {
-				connection.release()
-			}	
 		} else {
 			connection.release()
 		}		
@@ -224,15 +220,11 @@ handle[auth.AOCP.BUDDY_ADD] = function (data, u) { // handles online/offline sta
     var userStatus = u.I() == 1 ? 'online' : 'offline'
     var unknownPart = u.S()
     u.done()
-		
-	setTimeout(function(){  
-		if (userStatus === 'online') {
-			buddyStatus.emit('online', userId, userStatus)
-		} else if (userStatus === 'offline') {
-			buddyStatus.emit('offline', userId, userStatus)
-		}   
-	}, 1000)
-   
+	if (userStatus === 'online') {
+		buddyStatus.emit('online', userId, userStatus)
+	} else if (userStatus === 'offline') {
+		buddyStatus.emit('offline', userId, userStatus)
+	}   
 }
 
 handle[auth.AOCP.BUDDY_REMOVE] = function (data, u) {
@@ -515,7 +507,7 @@ global.send_GROUP_MESSAGE = function(msg) {
 	console.log('send_GROUP_MESSAGE')
 	send(
 	auth.AOCP.GROUP_MESSAGE, [
-		['G', orgBuffer], // G = GROUP ID ? ChannelId ? Guild Id
+		['G', orgBuffer],
 		['S', msg],
 		['S', 'text']	
 	])
@@ -557,13 +549,11 @@ incMessage.on('pm', function (userId, message) {
 											}
 											connection.release()
 										}
-								} else { 
-								connection.release()
-								if (message.split(' ')[0].toLowerCase() == 'join') {
-								}
-								send_MESSAGE_PRIVATE(userId, 'Command Disabled')
-								}
-							})
+									} else { 
+										connection.release()
+										send_MESSAGE_PRIVATE(userId, 'Command Disabled')
+									}
+								})
 							})
 					} else {
 						send_MESSAGE_PRIVATE(userId, 'Command not found')
@@ -663,7 +653,6 @@ buddyStatus.on('online', function (userId, userStatus) {
 		getUserName(connection,userId).done(function(result) {
 			query(connection,'INSERT INTO online (charid, name) VALUES (' + userId + ',"' + result[0][0].name + '")').done(function() {
 				console.log(result[0][0].name + ' is now online') // send to org channel or group channel
-				
 			})
 		})
 		connection.release()
@@ -678,7 +667,6 @@ buddyStatus.on('offline', function (userId, userStatus) {
 				console.log(result[0][0].name + ' logged off') // send to org channel or group channel	
 				})
 			}
-				
 		})
 		connection.release()
 	})
@@ -710,7 +698,6 @@ privgrp.on('part', function(userId) {
 			})
 			query(connection,'DELETE FROM channel WHERE name= "' + result[0][0].name + '"').done(function() {
 				send_PRIVGRP_MESSAGE(botId, result[0][0].name + ' left the channel')
-						
 			})
 		})
 		connection.release()
