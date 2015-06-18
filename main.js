@@ -667,8 +667,9 @@ buddyStatus.on('offline', function (userId, userStatus) {
 				console.log(result[0][0].name + ' logged off') // send to org channel or group channel	
 				connection.release()
 				})
+			} else {
+				connection.release()
 			}
-			connection.release()
 		})
 	})
 })
