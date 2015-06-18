@@ -653,9 +653,9 @@ buddyStatus.on('online', function (userId, userStatus) {
 		getUserName(connection,userId).done(function(result) {
 			query(connection,'INSERT INTO online (charid, name) VALUES (' + userId + ',"' + result[0][0].name + '")').done(function() {
 				console.log(result[0][0].name + ' is now online') // send to org channel or group channel
+				connection.release()
 			})
 		})
-		connection.release()
 	})
 })
 
@@ -665,10 +665,11 @@ buddyStatus.on('offline', function (userId, userStatus) {
 			if (result[0].length > 0) {
 				query(connection,'DELETE FROM online WHERE charid = ' + userId).done(function () {
 				console.log(result[0][0].name + ' logged off') // send to org channel or group channel	
+				connection.release()
 				})
 			}
+			connection.release()
 		})
-		connection.release()
 	})
 })
 

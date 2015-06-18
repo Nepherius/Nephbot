@@ -514,14 +514,14 @@ var commands = {
 						}
 					})
 				}  else {
-				 	alt = capitalize(args[0].toLowerCase())
-					query(connection, 'SELECT * FROM members WHERE main = ? ORDER BY "name" ASC', [alt]).done(function(result) {
+					alt = capitalize(args[0].toLowerCase())
+					query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY name ASC', [alt]).done(function(result) {
 						if (result[0].length > 1) {
-							altList = '<center> <font color=#FFFF00> ::: Alts of ' + alt + '::: </font> </center> \n\n'
+							altList = '<center> <font color=#FFFF00> ::: Alts of ' + result[0][0].main + '::: </font> </center> \n\n'
 							for (i = 0; i < result[0].length; i++) {
-								altList += result[0][i].alt + '\n'	
-							}	
-							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + alt + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
+								altList += result[0][i].name + '\n'	
+							}
+							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + result[0][0].main + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
 							connection.release()
 						} else {
 							send_MESSAGE_PRIVATE(userId, alt + ' has no alts registered.')
