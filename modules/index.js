@@ -7,12 +7,14 @@ var getroster_module = require('./org/getroster')
 var test_module = require('./core/test')
 var raid_control = require('./raid/raid_control')
 var bossloot_module = require('./raid/bossloot')
+var misc = require('./core/misc')
 
 
 //General
 commands.whois = whois
 commands.items = items
 commands.quicksetup = quicksetup
+commands.about = about
 //Raid
 commands.raid = raid
 commands.bid = bid
