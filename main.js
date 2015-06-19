@@ -659,19 +659,19 @@ buddyStatus.on('online', function (userId, userStatus) {
 	})
 })
 
-buddyStatus.on('offline', function (userId, userStatus) { 
-	connectdb().done(function (connection) {
-		query(connection,'SELECT * FROM online WHERE charid = ' + userId).done(function(result) {
-			if (result[0].length > 0) {
-				query(connection,'DELETE FROM online WHERE charid = ' + userId).done(function () {
-				console.log(result[0][0].name + ' logged off') // send to org channel or group channel	
-				connection.release()
-				})
-			} else {
-				connection.release()
-			}
-		})
-	})
+buddyStatus.on('offline', function (userId, userStatus) {
+    connectdb().done(function (connection) {
+        query(connection,'SELECT * FROM online WHERE charid = ?', userId).done(function(result) {
+            if (result[0].length == 0) {
+                connection.release()
+                return
+            }
+            query(connection,'DELETE FROM online WHERE charid = ?', userId).done(function () {
+                console.log(result[0][0].name + ' logged off') // send to org channel or group channel
+                connection.release()
+            })
+        })
+    })
 })
 
 privgrp.on('join', function(userId) {
