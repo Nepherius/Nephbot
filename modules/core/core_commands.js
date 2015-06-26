@@ -146,7 +146,6 @@ var commands = {
 				if (idResult === -1) {
 					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {	
-					userName = capitalize(userName[0].toLowerCase())
 					connectdb().done(function (connection) {
 						query(connection,'SELECT * FROM admins WHERE name = ?', [userName]).done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
@@ -179,7 +178,7 @@ var commands = {
 	},
 	deladmin: function(userId, args) {
 		if (args !== undefined) {	
-			var userName = capitalize(userName[0].toLowerCase())
+			var userName = capitalize(args[0].toLowerCase())
 			connectdb().done(function (connection) { 	
 				query(connection,'SELECT * FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
 					if (result[0].length === 0) {
@@ -208,7 +207,6 @@ var commands = {
 				if (idResult === -1) {
 				send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {
-					var userName = capitalize(userName[0].toLowerCase())					
 					connectdb().done(function(connection) {
 						query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function (result) {
 							if (result[0].length !== 0) {
@@ -454,7 +452,7 @@ var commands = {
 	alts : function(userId,args) { // Add prof - (level/ai level) to alt list
 		connectdb().done(function(connection) {
 			getUserName(connection,userId).done(function(result) {
-				var userName = result[0][0].name
+				userName = result[0][0].name
 				if (!args) {
 					query(connection, 'SELECT * FROM members WHERE main = "' + userName + '" ORDER BY "name" ASC').done(function(result) {
 						if (result[0].length > 1) {
@@ -473,8 +471,8 @@ var commands = {
 					if (args[1] !== undefined) {
 						commands.lookupUserName(args[1]).then(function (idResult) {
 							if (idResult === -1) {
-							send_MESSAGE_PRIVATE(userId,'Invalid character name')
-							connection.release()
+								send_MESSAGE_PRIVATE(userId,'Invalid character name')
+								connection.release()
 							} else {
 								alt = capitalize(args[1].toLowerCase())
 								if (userName === alt) {
@@ -532,7 +530,7 @@ var commands = {
 						}
 					})
 				}  else {
-					var alt = capitalize(args[0].toLowerCase())
+					alt = capitalize(args[0].toLowerCase())
 					query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY name ASC', [alt]).done(function(result) {
 						if (result[0].length > 1) {
 							altList = '<center> <font color=#FFFF00> ::: Alts of ' + result[0][0].main + '::: </font> </center> \n\n'

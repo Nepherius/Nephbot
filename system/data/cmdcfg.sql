@@ -54,5 +54,6 @@ INSERT INTO `cmdcfg` (`id`, `module`, `cmd`, `access_req`, `options`, `descripti
 (43, 'Core', 'raid', 1, '', 'Raid detailes', 'enabled'),
 (44, 'Core', 'lock', 3, '', 'Lock channel', 'enabled'),
 (45, 'Core', 'unlock', 3, '', 'Unlock channel', 'enabled'),
-(46, 'Core', 'updateorg', 3, '', 'Update org roster', 'enabled');
-ALTER TABLE `cmdcfg` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=47;
+(46, 'Core', 'updateorg', 3, '', 'Update org roster', 'enabled'),
+(47, 'Core', 'lastseen', 1, '', 'Player last seen', 'enabled');
+ALTER TABLE `cmdcfg` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=48;

@@ -14,7 +14,7 @@ var misc = require('./core/misc')
 commands.whois = whois
 commands.items = items
 commands.quicksetup = quicksetup
-commands.about = about
+commands.lastseen = lastseen
 //Raid
 commands.raid = raid
 commands.bid = bid
@@ -34,6 +34,7 @@ commands.s42 = s42
 commands.updateorg = updateorg
 
 //MISC
+commands.about = about
 commands.test = test
 // Export commands to main.js
 module.exports = commands

@@ -511,8 +511,8 @@ global.send_GROUP_MESSAGE = function(msg) {
 	send(
 	auth.AOCP.GROUP_MESSAGE, [
 		['G', orgBuffer],
-		['S', msg],
-		['S', 'text']	
+		['S', defaultFontColor + msg + '</font>'],
+		['S', 'foo']	
 	])
 }	
 // EVENT HANDLERS //
@@ -680,7 +680,7 @@ buddyStatus.on('online', function (userId, userStatus) {
 		})
 	} else {
 		connectdb().done(function(connection) {
-			getUserName2(connection,userId).done(function(result) {
+			getUserNameAsync(connection,userId).done(function(result) {
 				query(connection,'INSERT INTO online (charid, name) VALUES (' + userId + ',"' + result[0][0].name + '")').done(function() {
 					connection.release()
 				})
@@ -697,9 +697,11 @@ buddyStatus.on('offline', function (userId, userStatus) {
 					connection.release()
 					return
 				}
-				query(connection,'DELETE FROM online WHERE charid = ?', userId).done(function () {
-					send_GROUP_MESSAGE(result[0][0].name + ' logged off') // send to org channel or group channel
-					connection.release()
+				query(connection,'UPDATE members SET lastseen = UNIX_TIMESTAMP(NOW()) WHERE charid = ?', userId).then(function() {
+					query(connection,'DELETE FROM online WHERE charid = ?', userId).done(function () {
+						send_GROUP_MESSAGE(result[0][0].name + ' logged off') // send to org channel or group channel
+						connection.release()
+					})
 				})
 			})
 		})
