@@ -8,11 +8,11 @@ var main = require('../../main')
 var _ = require('underscore')
 var capitalize = require('underscore.string/capitalize')
 
-raidLoot = []
+var raidLoot = []
 exports.raid = raid  = function(userId, args) {
 	connectdb().done(function(connection) {
 		getUserName(connection,userId).done(function(result) {
-			userName = result[0][0].name
+			var userName = result[0][0].name
 			checkAccess(userId).done(function(result) {
 			var userAc = result
 				query(connection, 'SELECT * from raidinfo').done(function(result) {
@@ -296,14 +296,14 @@ exports.flatroll = flatroll = function(userId,args) {
 	}
 	connectdb().done(function(connection) {
 		checkAccess(userId).done(function(result) {
-			userAc = result		
+			var userAc = result		
 			access_req(connection, 'flatroll').done(function(result) {
 				if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
 					if (result[0].length === 0 || result[0][0].access_req <= userAc) {
 						getUserName(connection,userId).done(function(result){
-							userName = result[0][0].name
+							var userName = result[0][0].name
 							//if(!args) {
-								winnerList = '<center> <font color=#FFFF00> :::Flatroll Results::: </font> </center> \n'
+								var winnerList = '<center> <font color=#FFFF00> :::Flatroll Results::: </font> </center> \n'
 								var rl = raidLoot
 								for (i = 0; i < rl.length; i++) {
 									winnerList += '<font color=#00FFFF>Slot #' + (i+1)  + '</font> \n' 
@@ -311,7 +311,7 @@ exports.flatroll = flatroll = function(userId,args) {
 									if (lootSlot[i+1].length === 0) {
 										winnerList += 'Winner: No one added \n' 
 									} else {
-										shuffleUsers = _.shuffle(lootSlot[i+1])
+										var shuffleUsers = _.shuffle(lootSlot[i+1])
 										console.log(shuffleUsers)
 										winnerList += 'Winner:</font><font color=#00FF00>' + _.sample(shuffleUsers) + '</font> \n'
 									}									
@@ -352,7 +352,7 @@ exports.rem = rem = function(userId,args) {
 		} else {
 			connectdb().done(function(connection) {
 				getUserName(connection,userId).done(function(result) {
-				userName = result[0][0].name	
+				var userName = result[0][0].name	
 					for (i in lootSlot) {
 						if (lootSlot[i].indexOf(userName) >= 0) {
 							lootSlot[i].splice(lootSlot[i].indexOf(userName),1)
@@ -366,13 +366,13 @@ exports.rem = rem = function(userId,args) {
 	} else {
 		connectdb().done(function(connection) {
 			checkAccess(userId).done(function(result) {
-				userAc = result		
+				var userAc = result		
 				access_req(connection, 'rem').done(function(result) {
 					if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
 						if (result[0].length === 0 || result[0][0].access_req <= userAc) {
 							getUserName(connection,userId).done(function(result){
-								userName = result[0][0].name
-								removeUser = capitalize(args[0].toLowerCase()) 
+								var userName = result[0][0].name
+								var removeUser = capitalize(args[0].toLowerCase()) 
 								console.log(removeUser)
 								for (i in lootSlot) {
 									if (lootSlot[i].indexOf(removeUser) >= 0) {
@@ -404,12 +404,12 @@ exports.rem = rem = function(userId,args) {
 exports.add = add = function(userId, args) {
 	connectdb().done(function(connection) {
 		checkAccess(userId).done(function(result) {
-			userAc = result		
+			var userAc = result		
 			access_req(connection, 'add').done(function(result) {
 				if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
 					if (result[0].length === 0 || result[0][0].access_req <= userAc) {
 						getUserName(connection,userId).done(function(result) {
-							userName = result[0][0].name	
+							var userName = result[0][0].name	
 							query(connection, 'SELECT * FROM channel WHERE name = "' + userName + '"').done(function(result) {
 								if (result[0].length !== 0) {
 									if (raidLoot.length === 0 ) {
@@ -457,11 +457,11 @@ exports.add = add = function(userId, args) {
 	})	
 }	
 
-lootSlot = []
+var lootSlot = []
 exports.list = list =function(userId) {
 	connectdb().done(function(connection) {
 		getUserName(connection,userId).done(function(result) {
-			userName = result[0][0].name	
+			var userName = result[0][0].name	
 			query(connection, 'SELECT * FROM channel WHERE name = "' + userName + '"').done(function(result) {
 				if (result[0].length !== 0) {
 					if (raidLoot.length === 0 ) {
@@ -469,7 +469,7 @@ exports.list = list =function(userId) {
 						connection.release()
 						return	
 					}
-					lootList = '<center> <font color=#FFFF00> :::Loot List::: </font> </center> \n'
+					var lootList = '<center> <font color=#FFFF00> :::Loot List::: </font> </center> \n'
 					for (loot in raidLoot) {
 						lootList += '<font color=#00FFFF>Slot #' + (+loot+1)  + '</font> \n' 
 						lootList += 'Item: ' + raidLoot[loot] + '\n'
@@ -494,29 +494,29 @@ exports.bid = bid = function(userId, args) {
 	connectdb().done(function(connection) {
 		query(connection, 'SELECT * from raidinfo').done(function(result) {
 					if (result[0].length !== 0) {
-					var	raidStatus = result[0][0].status
-					var	locked = result[0][0].locked
+						var	raidStatus = result[0][0].status
+						var	locked = result[0][0].locked
 					} else {
-						raidStatus = 'no raid'	
-						locked = 'no'
+						var raidStatus = 'no raid'	
+						var locked = 'no'
 					}
 			if (raidStatus === 'running') {
 				getUserName(connection,userId).done(function(result) {
-					userName = result[0][0].name
+					var userName = result[0][0].name
 					query(connection,'SELECT * FROM raidforce WHERE name = "' + userName + '"').done(function(result) {
 						if (result[0].length !== 0) {
 							if (bidInProgress) {
 								if (isNaN(args[0]) || args[0] <= 0) {
-												send_MESSAGE_PRIVATE(userId, 'That\'s not a valid bid')
-												connection.release()
-												return									
+									send_MESSAGE_PRIVATE(userId, 'That\'s not a valid bid')
+									connection.release()
+									return									
 								}	
 								query(connection,'SELECT points FROM points JOIN members ON points.main = members.main WHERE members.name = ?', userName).done(function(result) {
 									if (result[0][0].points >= args[0] ) {
-											currentBid = Number(args[0])
+											var currentBid = Number(args[0])
 											if (!maxBid) {
-												maxBid	= {name : userName, bidAmount : currentBid}
-												leadingBid = 1 			
+												var maxBid	= {name : userName, bidAmount : currentBid}
+												var leadingBid = 1 			
 												send_PRIVGRP_MESSAGE(botId, maxBid.name + ' leading with ' + leadingBid + ' points')		
 											} else if (args[0] > leadingBid) {
 												if (!userName === maxBid.name) { 
@@ -528,7 +528,7 @@ exports.bid = bid = function(userId, args) {
 														maxBid.name = userName
 														maxBid.bidAmount = currentBid										
 													} else if (currentBid < maxBid.bidAmount) {
-														leadingBid = currentBid + 1
+														var leadingBid = currentBid + 1
 													} else {
 														console.log('BID ERROR') // Should never get here
 													}	
@@ -575,7 +575,7 @@ exports.bid = bid = function(userId, args) {
 exports.points = points = function (userId, args) {
 	connectdb().done(function(connection) {	
 		getUserName(connection,userId).done(function(result) {
-			userName = result[0][0].name
+			var userName = result[0][0].name
 			if (!args) {
 				query(connection,'SELECT points FROM points JOIN members ON points.main = members.main WHERE members.name = ?', [userName]).done(function(result) {
 					if (result[0].length !== 0) {
@@ -602,7 +602,7 @@ exports.points = points = function (userId, args) {
 						return
 					}				
 					checkAccess(userId).done(function(result) {
-						userAc = result		
+						var userAc = result		
 						access_req(connection, 'points').done(function(result) {
 							if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
 								if (result[0].length === 0 || result[0][0].access_req <= userAc) {
@@ -636,7 +636,7 @@ exports.points = points = function (userId, args) {
 					})	
 				} else {
 					checkAccess(userId).done(function(result) {
-						userAc = result		
+						var userAc = result		
 						access_req(connection, 'points').done(function(result) {
 							if (result[0].length === 0 || result[0].length > 0 && result[0][0].status === 'enabled' ) {
 								if (result[0].length === 0 || result[0][0].access_req <= userAc) {
@@ -680,27 +680,27 @@ var bidInterval;
 
 function bidTimer(time) {
 	send_PRIVGRP_MESSAGE(botId, time + ' seconds left')
-	bidInProgress = true
-	bidEndTime = Date.now() + (time * 1000)
+	var bidInProgress = true
+	var bidEndTime = Date.now() + (time * 1000)
 		
 bidTimeOut = setTimeout(function(){ 
 	if (maxBid) {
 	connectdb().done(function(connection) {
 		query(connection, 'UPDATE points JOIN members ON members.main = points.main SET points = points - ' + leadingBid + ' WHERE name = "' + maxBid.name + '"').done(function() {
 			send_PRIVGRP_MESSAGE(botId, maxBid.name + ' won the bid for ' + bidForItem + ', ' + leadingBid + ' points have been deducted from his account.')
-			maxBid = false
+			var maxBid = false
 			connection.release()	
 		})
 	})
 	} else {
 		send_PRIVGRP_MESSAGE(botId, 'No bids for ' + bidForItem + ' ,FFA.') 	
 	}	
-	bidInProgress = false
+	var bidInProgress = false
 	clearTimeout(bidTimeOut)
 	clearInterval(bidInterval)
 	}, time*1000)
 bidInterval = setInterval(function(){ 
-	bidTimeLeft = (bidEndTime - Date.now()) / 1000
+	var bidTimeLeft = (bidEndTime - Date.now()) / 1000
 	send_PRIVGRP_MESSAGE(botId,Math.round(bidTimeLeft) + ' seconds left') 
 	}, 10000);
 }	
@@ -708,8 +708,8 @@ bidInterval = setInterval(function(){
 function cancelBid() {
 	if (bidInProgress !== undefined) {
 		send_PRIVGRP_MESSAGE(botId, 'Auction canceled')
-		bidInProgress = false
-		maxBid = false
+		var bidInProgress = false
+		var maxBid = false
 		clearTimeout(bidTimeOut)
 		clearInterval(bidInterval)
 		
@@ -719,7 +719,7 @@ function cancelBid() {
 }	
 
 function bidCancelAndRearm(newTimer) {
-		bidInProgress = false
+		var bidInProgress = false
 		clearTimeout(bidTimeOut)
 		clearInterval(bidInterval)
 		bidTimer(newTimer)

@@ -3,7 +3,7 @@ var commands = require('./core/core_commands')
 var whois_module = require('./core/whois')
 var items_module = require('./core/items')
 var quicksetup_module = require('./core/quicksetup')
-var getroster_module = require('./org/getroster')
+var updateorg_module = require('./org/updateorg')
 var test_module = require('./core/test')
 var raid_control = require('./raid/raid_control')
 var bossloot_module = require('./raid/bossloot')
@@ -29,7 +29,11 @@ commands.s7 = s7
 commands.s13 = s13
 commands.s42 = s42
 
-commands.getroster = getroster
+
+//ORG
+commands.updateorg = updateorg
+
+//MISC
 commands.test = test
 // Export commands to main.js
 module.exports = commands

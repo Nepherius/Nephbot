@@ -7,7 +7,7 @@ var DEBUG = 0;
 process.on('uncaughtException', function (err) {
 	console.log("uncaughtException %s", err)
 	console.log(err.stack);
-	process.exit(1)
+	
 })
 
 

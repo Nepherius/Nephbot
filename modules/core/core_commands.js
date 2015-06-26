@@ -83,7 +83,7 @@ var commands = {
 
 	
 	cmdlist : function (userId) {
-		cmdList = []
+		var cmdList = []
 		for (key in cmd) {
 			if (!(key.match(/cmdlist/i)  || key.match(/lookupUserName/i))) {
 				cmdList.push(key)
@@ -102,14 +102,13 @@ var commands = {
 			console.log('To Be Added')	
 	
 	},
-	addadmin : function(userId,userName) {
-		if (userName !== undefined) {
+	addadmin : function(userId,args) {
+		if (args !== undefined) {
+			userName = capitalize(args[0].toLowerCase())
 			commands.lookupUserName(userName).then(function (idResult) {
 				if (idResult === -1) {
 					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {	
-					userName = capitalize(userName[0].toLowerCase())
-					
 					connectdb().done(function (connection) {
 						query(connection,'SELECT * FROM admins WHERE name =' + connection.escape(userName)).done(function(result) {
 							if (result[0].length !== 0) { //first check if player is already an admin or mod
@@ -140,8 +139,9 @@ var commands = {
 			
 		}
 	},
-	addmod : function(userId,userName) {
-		if (userName !== undefined) {
+	addmod : function(userId,args) {
+		if (args !== undefined) {
+			userName = capitalize(args[0].toLowerCase())
 			commands.lookupUserName(userName).then(function (idResult) {
 				if (idResult === -1) {
 					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
@@ -177,16 +177,16 @@ var commands = {
 			
 		}
 	},
-	deladmin: function(userId, userName) {
-		if (userName !== undefined) {	
-			userName = capitalize(userName[0].toLowerCase())
+	deladmin: function(userId, args) {
+		if (args !== undefined) {	
+			var userName = capitalize(userName[0].toLowerCase())
 			connectdb().done(function (connection) { 	
 				query(connection,'SELECT * FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
 					if (result[0].length === 0) {
 						send_MESSAGE_PRIVATE(userId, userName + ' is not an admin')
 						connection.release()
 					} else {
-						adminCharId = result[0][0].charid
+						var adminCharId = result[0][0].charid
 						query(connection,'DELETE FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
 						send_BUDDY_REMOVE(adminCharId)
 						send_MESSAGE_PRIVATE(userId, userName + ' is no longer an admin')
@@ -201,13 +201,14 @@ var commands = {
 		}
 		
 	},
-	addmember: function(userId,userName) {
-		if (userName !== undefined) {
+	addmember: function(userId,args) {
+		if (args !== undefined) {
+			userName = capitalize(args[0].toLowerCase())
 			commands.lookupUserName(userName).then(function (idResult) {
 				if (idResult === -1) {
 				send_MESSAGE_PRIVATE(userId, userName + ' not found')	
 				} else {
-					userName = capitalize(userName[0].toLowerCase())					
+					var userName = capitalize(userName[0].toLowerCase())					
 					connectdb().done(function(connection) {
 						query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function (result) {
 							if (result[0].length !== 0) {
@@ -232,7 +233,7 @@ var commands = {
 		}
 	},
 	delmember: function(userId, args) {//ADD : Main should not be deletable if it has alts, might break db
-		if (userName !== undefined) {	
+		if (args !== undefined) {	
 			userName = capitalize(args[0].toLowerCase())
 			connectdb().done(function(connection) {
 				query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function(result) {
@@ -258,8 +259,7 @@ var commands = {
 					}		
 				})
 			})
-		}
-		else {
+		} else {
 			send_MESSAGE_PRIVATE(userId,'Usage: delmember <player name>')
 		}
 	},
@@ -292,7 +292,7 @@ var commands = {
 				}	else {
 					// Check if char is set as main before deleting
 					getUserName(connection,userId).done(function (result) {
-						userName = result[0][0].name
+						var userName = result[0][0].name
 						query(connection,'SELECT * FROM members WHERE main = ?',[userName]).then(function(result) {
 							if (result[0].length > 1) {
 								send_MESSAGE_PRIVATE(userId, 'You must delete your alts first.')
@@ -385,33 +385,51 @@ var commands = {
 		}
 
 		connectdb().done(function(connection) {	
-			query(connection, 'SELECT * FROM players INNER JOIN channel ON players.name = channel.name ORDER BY "name" ASC').done(function(result) {
-				
-				var onlineReply = '<center><font color=#FFFF00>:: ' + result[0].length + ' characters in private group ::</font></center><br>'
-					for (i = 0; i < result[0].length; i++) {
-						(professions[result[0][i].profession].members).push(result[0][i].name + ' (<font color=#89D2E8>' + result[0][i].level + '</font>/<font color=#40FF00>' + result[0][i].ai_level + '</font>) - ' +  result[0][i].guild + '\n')
+			if (!ORG) {
+				query(connection, 'SELECT * FROM players INNER JOIN channel ON players.name = channel.name ORDER BY "name" ASC').done(function(result) {
+					var onlineReply = '<center><font color=#FFFF00>:: ' + result[0].length + ' characters in private group ::</font></center><br>'
+						for (i = 0; i < result[0].length; i++) {
+							(professions[result[0][i].profession].members).push(result[0][i].name + ' (<font color=#89D2E8>' + result[0][i].level + '</font>/<font color=#40FF00>' + result[0][i].ai_level + '</font>) - ' +  result[0][i].guild + '\n')
 					}
-					for (prof in professions) {
-						if (professions[prof].members.length > 0) {
-							onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-							onlineReply += professions[prof].icon
-							onlineReply += '<font color=#FFFF00>' + prof + '</font>'
-							onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-							onlineReply += professions[prof].members
+						for (prof in professions) {
+							if (professions[prof].members.length > 0) {
+								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
+								onlineReply += professions[prof].icon
+								onlineReply += '<font color=#FFFF00>' + prof + '</font>'
+								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
+								onlineReply += professions[prof].members
 						}	
 					}	
-					
+						
 					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  )
 				})		
-			
-				
+			} else {
+				query(connection, 'SELECT * FROM players INNER JOIN online ON players.name = online.name ORDER BY "name" ASC').done(function(result) {
+					var onlineReply = '<center><font color=#FFFF00>:: ' + result[0].length + ' characters in private group ::</font></center><br>'
+						for (i = 0; i < result[0].length; i++) {
+							(professions[result[0][i].profession].members).push(result[0][i].name + ' (<font color=#89D2E8>' + result[0][i].level + '</font>/<font color=#40FF00>' + result[0][i].ai_level + '</font>) - ' +  result[0][i].guild + '\n')
+					}
+						for (prof in professions) {
+							if (professions[prof].members.length > 0) {
+								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
+								onlineReply += professions[prof].icon
+								onlineReply += '<font color=#FFFF00>' + prof + '</font>'
+								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
+								onlineReply += professions[prof].members
+						}	
+					}	
+						
+					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  )
+				})		
+
+			}			
 			connection.release()
 		})
 	},
 	admins : function (userId) {
 		connectdb().done(function(connection) {
 			query(connection, 'SELECT * from admins ORDER BY "name" ASC').done(function(result) {
-				adminsResult = '<center><font color=#FFFF00>:: Admins ::</font></center><br>'
+				var adminsResult = '<center><font color=#FFFF00>:: Admins ::</font></center><br>'
 					query(connection, 'SELECT * from online').done(function(result2) {
 						on = ''
 						for (i = 0; i < result2[0].length; i++) {
@@ -436,7 +454,7 @@ var commands = {
 	alts : function(userId,args) { // Add prof - (level/ai level) to alt list
 		connectdb().done(function(connection) {
 			getUserName(connection,userId).done(function(result) {
-				userName = result[0][0].name
+				var userName = result[0][0].name
 				if (!args) {
 					query(connection, 'SELECT * FROM members WHERE main = "' + userName + '" ORDER BY "name" ASC').done(function(result) {
 						if (result[0].length > 1) {
@@ -514,7 +532,7 @@ var commands = {
 						}
 					})
 				}  else {
-					alt = capitalize(args[0].toLowerCase())
+					var alt = capitalize(args[0].toLowerCase())
 					query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY name ASC', [alt]).done(function(result) {
 						if (result[0].length > 1) {
 							altList = '<center> <font color=#FFFF00> ::: Alts of ' + result[0][0].main + '::: </font> </center> \n\n'
@@ -543,7 +561,7 @@ var commands = {
 	lock : function(userId) {
 		connectdb().done(function(connection) {
 			getUserName(connection,userId).done(function(result) {
-				userName = result[0][0].name
+				var userName = result[0][0].name
 				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
 					if (result[0][0].access_req >= 3) {
 						send_MESSAGE_PRIVATE(userId, 'Channel is already locked')
@@ -562,7 +580,7 @@ var commands = {
 	unlock : function(userId) {
 		connectdb().done(function(connection) {
 			getUserName(connection,userId).done(function(result) {
-				userName = result[0][0].name
+				var userName = result[0][0].name
 				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
 					if (result[0][0].access_req === 0) {
 						send_MESSAGE_PRIVATE(userId, 'Channel is already unlocked')
@@ -604,6 +622,28 @@ global.getUserName = function(connection, userId) {
         connection.release()
         })
 }	
+global.getUserName2 = function(connection, userId) {
+    var result = Q.defer()
+    var handler = function ()
+    {
+        result.resolve(query(connection ,'SELECT * FROM players WHERE `charid` = ?', userId ))
+    }
+    onClientName.once(userId, handler)
+    var timeout = setTimeout(function ()
+    {
+        result.reject("Couldn't get userId")
+    }, 1000)
+    return query(connection ,'SELECT * FROM players WHERE `charid` = ?', userId )
+        .then(function (rows) {
+            if (rows[0].length > 0)
+            {
+                onClientName.removeListener(userId, handler)
+                clearTimeout(timeout)
+                result.resolve(rows)
+            }
+            return result.promise
+        })
+}
 global.getUserId = function(connection, userName) {
 		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE name = "' + userName + '"' ).fail(function (err, connection)
         {
@@ -625,41 +665,41 @@ global.die = function(msg) {
     if (msg) {
         console.log(msg)
     }
-    s.removeAllListeners()
     process.exit()
 }
 
 global.checkAccess = function(userId) {
         var defer = Q.defer()
         connectdb().done(function (connection) {
-            getUserName(connection,userId).done(function(result) {
-			userName = result[0][0].name
-				if (userName === Owner) {
-					var access = 5
-					defer.resolve(access)
-					return access
-				} else { 
-					query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
-						if (result[0].length > 0 ) {
-							var access = result[0][0].level
-							defer.resolve(access)
-							return access
-						} else {
-							query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
-								if (result[0].length > 0 ) {
-									var access = 1 
-									defer.resolve(access)
-									return access
-								} else {
-									var access = 0
-									defer.resolve(access)
-									return access
-								}                              
-							})
-						}      
-					})
-				}	
-			})
+				getUserName2(connection,userId).done(function(result) {
+				var userName = result[0][0].name
+					if (userName === Owner) {
+						var access = 5
+						defer.resolve(access)
+						return access
+					} else { 
+						query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
+							if (result[0].length > 0 ) {
+								var access = result[0][0].level
+								defer.resolve(access)
+								return access
+							} else {
+								query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
+									if (result[0].length > 0 ) {
+										var access = 1 
+										defer.resolve(access)
+										return access
+									} else {
+										var access = 0
+										defer.resolve(access)
+										return access
+									}                              
+								})
+							}      
+						})
+					}	
+				})
+				
 		})
         return defer.promise   
 }

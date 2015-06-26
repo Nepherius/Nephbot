@@ -22,7 +22,7 @@ function bossloot(userId, boss) {
 		if (boss == '12m') { // Special case for 12m because of the long loot list
 			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "general"').done(function(result) {
 					if (result[0].length !== 0) {
-					loottable = '<center> <font color=#FFFF00> ::: 12 Man General Loot ::: </font> </center> \n\n'
+					var loottable = '<center> <font color=#FFFF00> ::: 12 Man General Loot ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
 						loottable += '<a href = itemref://' + result[0][i].lowid + '/' + result[0][i].highid + '/' + result[0][i].highql + '><img src=rdb://' + result[0][i].icon + '></a> \n'
 						loottable += 'Item : ' + result[0][i].name + '\n'
@@ -35,7 +35,7 @@ function bossloot(userId, boss) {
 			})
 			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "symbiant"').done(function(result) {
 					if (result[0].length !== 0) {
-					loottable = '<center> <font color=#FFFF00> ::: 12 Man Symbiants ::: </font> </center> \n\n'
+					var loottable = '<center> <font color=#FFFF00> ::: 12 Man Symbiants ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
 						loottable += '<a href = itemref://' + result[0][i].lowid + '/' + result[0][i].highid + '/' + result[0][i].highql + '><img src=rdb://' + result[0][i].icon + '></a> \n'
 						loottable += 'Item : ' + result[0][i].name + '\n'
@@ -48,7 +48,7 @@ function bossloot(userId, boss) {
 			})
 			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "spirit"').done(function(result) {
 					if (result[0].length !== 0) {
-					loottable = '<center> <font color=#FFFF00> ::: 12 Man Spirits ::: </font> </center> \n\n'
+					var loottable = '<center> <font color=#FFFF00> ::: 12 Man Spirits ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
 						loottable += '<a href = itemref://' + result[0][i].lowid + '/' + result[0][i].highid + '/' + result[0][i].highql + '><img src=rdb://' + result[0][i].icon + '></a> \n'
 						loottable += 'Item : ' + result[0][i].name + '\n'
@@ -61,7 +61,7 @@ function bossloot(userId, boss) {
 			})
 			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" AND type = "gem"').done(function(result) {
 					if (result[0].length !== 0) {
-					loottable = '<center> <font color=#FFFF00> ::: 12 Man Profession Gems ::: </font> </center> \n\n'
+					var loottable = '<center> <font color=#FFFF00> ::: 12 Man Profession Gems ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
 						loottable += '<a href = itemref://' + result[0][i].lowid + '/' + result[0][i].highid + '/' + result[0][i].highql + '><img src=rdb://' + result[0][i].icon + '></a> \n'
 						loottable += 'Item : ' + result[0][i].name + '\n'
@@ -76,7 +76,7 @@ function bossloot(userId, boss) {
 		} else {
 			query(connection,'SELECT * FROM bossloot WHERE boss = "' + boss + '" ').done(function(result) {
 					if (result[0].length !== 0) {
-					loottable = '<center> <font color=#FFFF00> :::' +  boss + 'General Loot ::: </font> </center> \n\n'
+					var loottable = '<center> <font color=#FFFF00> :::' +  boss + 'General Loot ::: </font> </center> \n\n'
 					for (i = 0; arrlen = result[0].length, i < arrlen; i++) {
 						loottable += '<a href = itemref://' + result[0][i].lowid + '/' + result[0][i].highid + '/' + result[0][i].highql + '><img src=rdb://' + result[0][i].icon + '></a> \n'
 						loottable += 'Item : ' + result[0][i].name + '\n'

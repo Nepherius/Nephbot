@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS `cmdcfg` (
   `options` varchar(50) NOT NULL,
   `description` varchar(75) NOT NULL,
   `status` varchar(50) NOT NULL DEFAULT 'enabled'
-);
+)
 ALTER TABLE cmdcfg ADD PRIMARY KEY (id);
 INSERT INTO `cmdcfg` (`id`, `module`, `cmd`, `access_req`, `options`, `description`, `status`) VALUES
 (1, 'Core', 'addadmin', 4, '', 'Adds a bot admin', 'enabled'),
@@ -53,5 +53,6 @@ INSERT INTO `cmdcfg` (`id`, `module`, `cmd`, `access_req`, `options`, `descripti
 (42, 'Raid', 'loot', 2, '', 'Add item to flatroll list', 'enabled'),
 (43, 'Core', 'raid', 1, '', 'Raid detailes', 'enabled'),
 (44, 'Core', 'lock', 3, '', 'Lock channel', 'enabled'),
-(45, 'Core', 'unlock', 3, '', 'Unlock channel', 'enabled');
-ALTER TABLE `cmdcfg` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=46;
+(45, 'Core', 'unlock', 3, '', 'Unlock channel', 'enabled'),
+(46, 'Core', 'updateorg', 3, '', 'Update org roster', 'enabled');
+ALTER TABLE `cmdcfg` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=47;

@@ -117,7 +117,7 @@ fs.stat('./settings/config.json', function (err, stat) {
                     console.log('Creating & Populating databases, this might take a while.')
                     Q.all(
                     Array.prototype.concat.apply([], sqlFiles.map(function (file) {
-                        return fs.readFileSync('./settings/data/' + file + '.sql', 'utf8')
+                        return fs.readFileSync('./system/data/' + file + '.sql', 'utf8')
                             .split(/;/).map(function (queries) {
                             if (queries.length > 10) {
                                 return query(connection, queries)

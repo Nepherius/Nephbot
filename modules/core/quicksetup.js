@@ -4,7 +4,7 @@ var capitalize = require('underscore.string/capitalize')
 
 
 exports.quicksetup = quicksetup = function(userId, args) {
-	setup = '<center> <font color=#FFFF00> ::: Quick Setup ::: </font> </center> \n\n'
+	var setup = '<center> <font color=#FFFF00> ::: Quick Setup ::: </font> </center> \n\n'
 	setup += 'Here you can quickly change the settings of your raid bot by chosing one of the predefined modes: \n'
 	setup += '<center>Default </center>'
 	setup += '<font color=#00FFFF>Description:</font> Anyone can join and use most commands except raid control. \n'

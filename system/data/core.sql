@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `channel` (
   `afk` varchar(11) NOT NULL
 );
 CREATE TABLE IF NOT EXISTS `members` (
-  `charid` bigint(30) NOT NULL,
+  `charid` bigint(30) NOT NULL DEFAULT '0',
   `name` varchar(255) NOT NULL,
   `main` varchar(255) NOT NULL,
   `banned` int(10) NOT NULL
@@ -19,21 +19,7 @@ CREATE TABLE IF NOT EXISTS `online` (
   `charid` int(20) NOT NULL,
   `name` varchar(30) NOT NULL
 );
-CREATE TABLE IF NOT EXISTS `org_roster` (
-  `firstname` varchar(30) DEFAULT NULL,
-  `name` varchar(20) NOT NULL,
-  `lastname` varchar(30) DEFAULT NULL,
-  `level` smallint(6) NOT NULL,
-  `breed` varchar(20) NOT NULL,
-  `gender` varchar(20) NOT NULL,
-  `profession` varchar(20) NOT NULL,
-  `profession_title` varchar(50) NOT NULL,
-  `ai_rank` varchar(20) NOT NULL,
-  `ai_level` smallint(6) NOT NULL,
-  `guild_rank` varchar(20) DEFAULT NULL,
-  `source` varchar(50) NOT NULL,
-  `lastupdate` int(11) DEFAULT NULL
-);
+
 CREATE TABLE IF NOT EXISTS `players` (
   `charid` bigint(20) NOT NULL,
   `firstname` varchar(30) DEFAULT NULL,
@@ -91,6 +77,6 @@ CREATE TABLE IF NOT EXISTS `uptime` (
 
 ALTER TABLE `admins` ADD UNIQUE KEY `charid` (`charid`);
 ALTER TABLE `channel` ADD PRIMARY KEY (`charid`);
-ALTER TABLE `members`  ADD UNIQUE KEY `charid` (`charid`);
-ALTER TABLE `org_roster` ADD PRIMARY KEY (`name`);
+ALTER TABLE `members` ADD UNIQUE KEY `charid` (`charid`), ADD UNIQUE KEY `name` (`name`);
+ALTER TABLE `online` ADD PRIMARY KEY (`charid`);
 ALTER TABLE `players` ADD PRIMARY KEY (`charid`), ADD UNIQUE KEY `charid` (`charid`);
