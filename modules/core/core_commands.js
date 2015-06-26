@@ -622,7 +622,7 @@ global.getUserName = function(connection, userId) {
         connection.release()
         })
 }	
-global.getUserName2 = function(connection, userId) {
+global.getUserNameAsync = function(connection, userId) {
     var result = Q.defer()
     var handler = function ()
     {
@@ -671,7 +671,7 @@ global.die = function(msg) {
 global.checkAccess = function(userId) {
         var defer = Q.defer()
         connectdb().done(function (connection) {
-				getUserName2(connection,userId).done(function(result) {
+				getUserNameAsync(connection,userId).done(function(result) {
 				var userName = result[0][0].name
 					if (userName === Owner) {
 						var access = 5
