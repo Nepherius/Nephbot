@@ -18,15 +18,24 @@ exports.lastseen = lastseen = function (userId, args) {
 	}	
 	userName = capitalize(args[0].toLowerCase())
 	connectdb().done(function(connection) {
-		query(connection,'SELECT online.* FROM online JOIN members ON online.name = members.main WHERE members.name = ?', userName).done(function(result) {
+		query(connection, 'SELECT * from members WHERE members.name = ?', userName).done(function(result) {
 			if (result[0].length !== 0) {
-				send_MESSAGE_PRIVATE(userId, userName + ' is online as ' + result[0][0].name)
-			} else {		
-				query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY lastseen DESC', userName).done(function(result) {
-					send_MESSAGE_PRIVATE(userId, userName + ' was last seen on ' + result[0][0].name + ' at ' + moment(moment.unix(result[0][0].lastseen)).toDate() + ', ' + moment(moment.unix(result[0][0].lastseen)).fromNow())
+				query(connection,'SELECT online.* FROM online JOIN members ON online.name = members.main WHERE members.name = ?', userName).done(function(result) {
+					if (result[0].length !== 0) {
+						send_MESSAGE_PRIVATE(userId, userName + ' is online as ' + result[0][0].name)
+						connection.release()
+					} else {		
+						query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY lastseen DESC', userName).done(function(result) {
+							send_MESSAGE_PRIVATE(userId, userName + ' was last seen on ' + result[0][0].name + ' at ' + moment(moment.unix(result[0][0].lastseen)).toDate() + ', ' + moment(moment.unix(result[0][0].lastseen)).fromNow())
+							connection.release()
+						})
+					}
 				})
+			} else { 
+				send_MESSAGE_PRIVATE(userId, userName + ' is not a registered member')
+				connection.release()
 			}
-		})	
+		})		
 	})	
 	
 }
