@@ -12,7 +12,6 @@ var parseString = require('xml2js').parseString
 var util = require('util')
 var express = require('express')
 var request = require('request')
-var buffertools = require('buffertools')
 var mysql = require('mysql')
 
 
@@ -28,6 +27,7 @@ var buddyStatus = new events.EventEmitter()
 var privgrp = new events.EventEmitter()
 var incMessage = new events.EventEmitter()
 global.onClientName = new events.EventEmitter()
+var channels = new events.EventEmitter()
 
 // Colors, just one for now
 var defaultFontColor = '<font color=\'#89D2E8\'>'
@@ -244,13 +244,26 @@ handle[auth.AOCP.BUDDY_REMOVE] = function (data, u) {
 handle[auth.AOCP.MESSAGE_PRIVATE] = function (data, u) {
     var userId = u.I()
     var text = u.S().replace(commandPrefix,'')
-    var unknownPart = u.S()
+	var unknownPart = u.S()
     u.done()
 	incMessage.emit('pm', userId, text)
 	
 }	
-
-
+handle[auth.AOCP.MESSAGE_VICINITY] = function (data, u) { // not working properly
+	var userId = u.I()
+	var text = u.S()
+}	
+handle[auth.AOCP.MESSAGE_VICINITYA] = function (data, u) { // not tested
+	var unkString = u.S()
+	var text = u.S()
+    var unknownPart = u.S()
+	u.done()
+}
+handle[auth.AOCP.MESSAGE_SYSTEM] = function (data, u) {
+	var systemMsg = u.S()
+	u.done()
+	console.log('System Message : ' + systemMsg)
+}	
 handle[auth.AOCP.CLIENT_LOOKUP] = function (data, u) {
     var userId = u.I()
     var userName = u.S()
@@ -308,19 +321,13 @@ handle[auth.AOCP.PRIVGRP_REFUSE] = function (data, u) // Needs testing
 
 }
 
-handle[auth.AOCP_GROUP_ANNOUNCE] = function (data, u) {
+handle[auth.AOCP.GROUP_ANNOUNCE] = function (data, u) {
     var buffer = u.G()
-    var text1 = u.S()
-    var digit = u.I()
-    var text2 = u.S()
+    var channelName = u.S()
+    var unknownId = u.I()
+	var unknownPart = u.S()
     u.done()
-    console.log("Group Announce")
-    console.log({
-        buffer: buffer,
-        text1: text1,
-        digit: digit,
-        text2: text2
-    })
+	channels.emit('new', channelName, buffer)
 }
 
 var extHandle = {}
@@ -331,16 +338,14 @@ handle[auth.AOCP.GROUP_MESSAGE] = function (data, u)
 	var text = u.E()
 	var unknownPart = u.S()
 	u.done()
-//	CH Buffers
-//  <Buffer 03 00 00 25 e0> ==> ORG
-//  <Buffer 87 07 76 01 10> ==> VICINITY
+
 
 		var ext = u.extMsg(text)
 
 		if (ext.text)
 		{
 			//console.log({g : g, userId : userId, nonExtended : ext.text})
-			if (buffertools.compare(g, orgBuffer ) === 0) {
+			if (g.slice(0,1).toString('hex') == 3) {
 				incMessage.emit('org', userId, ext.text)
 			}
 			return
@@ -351,7 +356,7 @@ handle[auth.AOCP.GROUP_MESSAGE] = function (data, u)
 			'501_ad0ae9b' : 'ORG_LEAVE_ALIGN', // alingment change
 			
 			// TOWERS	
-			'506_0c299d4' : 'NW_ATTACK',
+			'506_c299d4' : 'NW_ATTACK',
 			'506_8cac524' : 'NW_ABANDON',
 			'506_70de9b2' : 'NW_OPENING',
 			'506_5a1d609' : 'NW_TOWER_ATT_ORG',
@@ -410,19 +415,22 @@ extHandle.ORG_LEAVE_ALIGN = function(u) {
 }	
 //TOWERS
 extHandle.NW_ATTACK = function(u) {
-	var att_side = u.eS()
+//	var att_side = u.eS()
 	var att_org = u.eS()
-	var att_name = u.eS()
-	var def_side = u.eS()
-	var def_org = u.eS()
-	var nw_zone = u.eS()
-	var coord = u.eS()
-	send_GROUP_MESSAGE('The ' + att_side  + 'organization ' + att_org + ' just entered a state of war! ' + att_name + ' attacked the ' + def_side + ' organization ' + def_org + '\'s tower in ' + nw_zone + ' at location' + coord + '.') 	
+//	var att_name = u.eS()
+//	var def_side = u.eS()
+//	var def_org = u.eS()
+//	var nw_zone = u.eS()
+//	var coordX = u.eS()
+//	var coordY = u.eS()
+	u.done()
+console.log(att_org)	
 }	
 extHandle.NW_ABANDON = function(u) {
-	var side = u.eS()
+//	var side = u.eS()
 	var nw_org = u.eS()
 	var nw_zone = u.eS()
+	u.done()
 	send_GROUP_MESSAGE('Notum Wars Update: The ' + side + ' organization ' + nw_org + ' lost their base in ' + nw_zone + '.')
 }	
 extHandle.NW_OPENING = function(u) {
@@ -430,6 +438,7 @@ extHandle.NW_OPENING = function(u) {
 	var nw_pf = u.eS()
 	var coords = u.eS()
 	var def_org = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(nw_player + ' just initiated an attack on playfield '+ nw_pf + ' at location ' + coords + '. That area is controlled by ' + def_org + '. All districts controlled by your organization are open to attack! You are in a state of war. Leader chat informed.')
 	
 }	
@@ -439,6 +448,7 @@ extHandle.NW_TOWER_ATT_ORG = function(u) {
 	var nw_health = u.eS()
 	var att_name = u.eS()
 	var att_org	 = u.eS()
+	u.done()
 	send_GROUP_MESSAGE('The tower ' + nw_tower + ' in ' + nw_zone + ' was just reduced to ' + nw_health +  '% health by ' + att_name + ' from the ' + att_org + ' organization!')
 }	
 extHandle.NW_TOWER_ATT = function(u) {
@@ -446,12 +456,14 @@ extHandle.NW_TOWER_ATT = function(u) {
 	var nw_zone = u.eS()
 	var nw_health = u.eS()
 	var att_name = u.eS()
+	u.done()
 	send_GROUP_MESSAGE('The tower ' + nw_tower + ' in ' + nw_zone +  ' was just reduced to ' + nw_health + '% health by ' + att_name + '!')
 }	
 extHandle.NW_TOWER = function(u) {
 	var nw_tower = u.eS()
 	var nw_zone = u.eS()
 	var nw_health = u.eS()
+	u.done()
 	send_GROUP_MESSAGE('The tower ' + nw_tower + ' in ' + nw_zone + ' was just reduced to ' + nw_health + '% health!')
 }	
 
@@ -459,34 +471,41 @@ extHandle.NW_TOWER = function(u) {
 extHandle.ORG_JOIN = function(u) {
     var s1 = u.eS()
     var s2 = u.eS()
+	u.done()
     console.log(s1 + ' invited ' + s2 + ' to your organization.' )
 }
 extHandle.ORG_KICK = function(u) {
 	var s1 = u.eS()
 	var s2 = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' kicked ' + s2 + ' from your organization')
 }	
 extHandle.ORG_LEAVE = function(u) {
 	var s1 = u.eS()	
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' has left your organization.')
 }
 extHandle.ORG_FORM = function(u) {
 	var s1 = u.eS()
 	var orgForm  = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' changed the organization governing form to ' + orgForm)	
 }	
 extHandle.ORG_DISBAND = function(u) {
 	var s1 = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' has disbanded the organization')	
 }	
 extHandle.ORG_VOTE = function(u) {
 	var voteSubj = u.eS()
 	var voteDurantion = u.eS()
 	var voteChoices = u.eS()
+	u.done()
 	send_GROUP_MESSAGE('Voting Notice: ' + voteSubj + '\n Candidates: \n' + voteChoices + '\n Duration: \n' + voteDurantion + ' minutes')
 }
 extHandle.ORG_ORBITAL_STRIKE = function(u) {
 	var s1 = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' has launched an orbital strike!')
 }
 // City
@@ -494,6 +513,7 @@ extHandle.ORG_ORBITAL_STRIKE = function(u) {
 extHandle.AI_CLOAK = function(u) {
 	var s1 = u.eS()
 	var cloakStatus = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' turned, the cloaking device in your city, ' + cloakStatus)
 }
 extHandle.AI_RADAR = function(u) {
@@ -506,23 +526,27 @@ extHandle.AI_ATTACK = function(u) {
 extHandle.AI_HQ_REMOVE = function(u) {
 	var s1 = u.eS()
 	var cityZone = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' removed the organization headquarters in ' + cityZone)
 }
 extHandle.AI_REMOVE_INIT = function(u) {
 	var s1 = u.eS()
 	var cityType = u.eS()
 	var cityZone = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' initiated removal of a ' + cityType + ' in ' + cityZone)	
 }	
 extHandle.AI_REMOVE = function(u) {
 	var s1 = u.eS()
 	var cityType = u.eS()
 	var cityZone = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' removed a ' + cityType + ' in ' + cityZone)	
 }
 extHandle.AI_HQ_REMOVE_INIT = function(u) {
 	var s1 = u.eS()
 	var cityZone = u.eS()
+	u.done()
 	send_GROUP_MESSAGE(s1 + ' initiated removal of the organization headquarters in ' + cityZone)
 }	
 
@@ -623,7 +647,7 @@ global.send_BUDDY_REMOVE = function(userId) {
     ])
 }
 
-global.orgBuffer = new Buffer([0x03, 0x00, 0x00, 0x25, 0xe0])
+
 
 global.send_GROUP_MESSAGE = function(msg) {
 	console.log('[Org]' + msg)
@@ -757,10 +781,8 @@ incMessage.on('org', function (userId, message) {
 										}, 500)
 									} else {
 										send_MESSAGE_PRIVATE(userId, 'Access denied')
-										connection.release()
 									}
 								} else {
-									connection.release()
 									send_MESSAGE_PRIVATE(userId, 'Command Disabled')
 								}
 							})
@@ -871,3 +893,12 @@ privgrp.on('part', function(userId) {
 		connection.release()
 	})	
 })	
+global.Channels = {}
+channels.on('new', function(chName,chBuffer) {
+	Channels[chName] =  chBuffer
+	
+	if (chBuffer.slice(0,1).toString('hex') == 3) {
+		global.orgBuffer = new Buffer(chBuffer)
+	}	
+	
+})

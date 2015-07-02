@@ -2,7 +2,7 @@
 
 var fs = require('fs')
 var assert = require('assert')
-var BigInt = require('bigint')
+var bignum = require('bignum');
 
 var AOCP = 
 	{ LOGIN_SEED : 0
@@ -14,6 +14,9 @@ var AOCP =
 	, CLIENT_NAME : 20
 	, CLIENT_LOOKUP : 21
 	, MESSAGE_PRIVATE : 30
+	, MESSAGE_VICINITY : 34
+	, MESSAGE_VICINITY  :35
+	, MESSAGE_SYSTEM : 36
 	, CHAT_NOTICE : 37
 	, BUDDY_ADD : 40
 	, BUDDY_REMOVE : 41
@@ -98,7 +101,7 @@ function str_repeat(str, size)
 
 function fromHex(hex)
 {
-		return new BigInt(hex, 16)
+		return new bignum(hex, 16)
 }
 
 function generate_login_key(serverseed, username, password)
@@ -107,7 +110,7 @@ function generate_login_key(serverseed, username, password)
 	var dhN = fromHex("eca2e8c85d863dcdc26a429a71a9815ad052f6139669dd659f98ae159d313d13c6bf2838e10a69b6478b64a24bd054ba8248e8fa778703b418408249440b2c1edd28853e240d8a7e49540b76d120d3b1ad2878b1b99490eb4a2a5e84caa8a91cecbdb1aa7c816e8be343246f80c637abc653b893fd91686cf8d32d6cfe5f2a6f");
 	var dhG = fromHex("05");
 	
-	var dhx = BigInt.fromBuffer(crypto.pseudoRandomBytes(256 / 8))
+	var dhx = bignum.fromBuffer(crypto.pseudoRandomBytes(256 / 8))
 
 	if (xtest)
 	{
@@ -220,7 +223,7 @@ function aochat_crypt(key, str)
 
 function hex(x)
 {
-		return new BigInt(x).toString(16)
+		return new bignum(x).toString(16)
 }
 
 function m(x)
