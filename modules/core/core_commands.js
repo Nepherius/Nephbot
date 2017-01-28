@@ -1,720 +1,646 @@
-var assert = require('assert')
-var util = require('util')
-var events = require('events')
-var Q = require('q')
-var express = require('express')
-var mysql = require('mysql')
-var _ = require('underscore')
-var capitalize = require('underscore.string/capitalize')
+const events = require('events');
+const winston = require('winston');
+const Promise = require('bluebird');
+const _ = require('lodash');
+const rfr = require('rfr');
+const moment = require('moment');
 
-var commands = {
-    lookupUserName: function (userName) {
-        var result = Q.defer()
-        outstandingLookups.once(userName, function (idResult) {
-            result.resolve(idResult)
-        })
+const fork = require('child_process').fork;
 
-        console.log('Looking up id for ' + userName)
-        send_CLIENT_LOOKUP(userName)
+const GlobalFn = rfr('system/globals.js');
+const Chat = rfr('config/models/prvGroup.js');
+const Online = rfr('config/models/online.js');
+const Player = rfr('config/models/player.js');
+const Replica = rfr('config/models/replica_login.js');
+const Command = rfr('config/models/commands.js');
+const Settings = rfr('config/models/settings.js');
 
-        return result.promise
+const coreCmd = {
+    lookupUserName: function(userName) {
+        return new Promise(function(resolve, reject) {
+            send_CLIENT_LOOKUP(userName);
+            outstandingLookups.once(userName, function(idResult) {
+                winston.debug('CLIENT_LOOKUP Event Result: ' + idResult);
+                resolve(idResult);
+            });
+        });
     },
-
-    invite: function (userId, userName) {
-								
-        if (userName !== undefined) {
-            commands.lookupUserName(userName).then(function (idResult) {
-                (idResult !== -1) ? (send_PRIVGRP_INVITE(idResult), send_MESSAGE_PRIVATE(userId, 'Invited ' + userName + ' to this channel')) : send_MESSAGE_PRIVATE(userId, 'Username not found')
-            })
+    getClientName: function(userId) {
+        return new Promise(function(resolve, reject) {
+            onClientName.once(userId, function(userName) {
+                winston.debug('Client Name ' + userName);
+                setTimeout(function() {
+                    resolve(userName);
+                }, 1000);
+            });
+        });
+    },
+    help: function(userId, args) {
+        if (!args[0]) {
+            GlobalFn.PMUser(userId, GlobalFn.blob('Help', helpMsg));
         } else {
-            send_PRIVGRP_INVITE(userId)
+            Command.findOne({
+                'cmdName': args[0].toLowerCase()
+            }, function(err, result) {
+                if (result === null) {
+                    GlobalFn.PMUser(userId, 'No help found on this topic.', 'warning');
+                } else {
+                    GlobalFn.PMUser(userId, result.help);
+                }
+            });
         }
     },
-    join: function (userId) {
-        connectdb().done(function(connection) {
-			query(connection, 'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
-			if (result[0].length !== 0) {
-				send_PRIVGRP_INVITE(userId)
-				connection.release()	
-			} else {
-				query(connection, 'SELECT * FROM cmdcfg WHERE cmd = "register"').done(function(result) {
-					if (result[0][0].status === "enabled") {
-						send_MESSAGE_PRIVATE(userId, 'You have to !register first')
-						connection.release()
-					} else {
-						send_MESSAGE_PRIVATE(userId, 'You are not a member')
-						connection.release()	
-					}	
-				})				
-			}	
-			})			
-		})
-	},
-
-
-    kick: function (userId, userName) {
-        if (userName !== undefined) {
-            commands.lookupUserName(userName).then(function (idResult) {
-                (idResult !== -1) ? (send_PRIVGRP_KICK(idResult), send_MESSAGE_PRIVATE(userId, 'Kicked ' + userName + ' from this channel')) : send_MESSAGE_PRIVATE(userId, 'Username not found')
-            })
-        } else {
-            send_PRIVGRP_KICK(userId)
-        }
-
-    },
-	
-	kickall: function() {
-		send_PRIVGRP_KICKALL()
-	},
-	
-	
-	leave: function (userId) {
-			connectdb().done(function(connection) {
-				query(connection, 'SELECT * FROM channel WHERE charid = ' + userId).done(function(result) {
-					if (result[0].length !== 0) {
-						send_PRIVGRP_KICK(userId)
-						send_MESSAGE_PRIVATE(userId, 'You\'ve left the channel')
-					}
-					connection.release()	
-				})				
-			})			
-			
-	},	
-
-	
-	cmdlist : function (userId) {
-		var cmdList = []
-		for (key in cmd) {
-			if (!(key.match(/cmdlist/i)  || key.match(/lookupUserName/i))) {
-				cmdList.push(key)
-			}	
-		}
-		cmdList.sort()
-		printCmdList = ''
-		for (i = 0; i < cmdList.length; i++) {
-			printCmdList += '<a href=\'chatcmd:///tell ' + Botname + ((cmdList[i].match(/help/)) ? ' ' : ' help ') + cmdList[i] + '\'>' + cmdList[i] + '</a>' + "\n"
-		}
-		send_MESSAGE_PRIVATE(userId, '<a href="text://' + printCmdList + '">Command List</a>' )
-	},
-
-
-	towers: function(userId) { // parse tower.info
-			console.log('To Be Added')	
-	
-	},
-	addadmin : function(userId,args) {
-		if (args !== undefined) {
-			userName = capitalize(args[0].toLowerCase())
-			commands.lookupUserName(userName).then(function (idResult) {
-				if (idResult === -1) {
-					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
-				} else {	
-					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name =' + connection.escape(userName)).done(function(result) {
-							if (result[0].length !== 0) { //first check if player is already an admin or mod
-								if (result[0][0].level >= 4) {
-									send_MESSAGE_PRIVATE(userId, userName + ' is already an admin')
-									connection.release()
-								} else {
-									query(connection,'UPDATE admins SET level = 4 WHERE name = ' + connection.escape(userName)).done(function(result) {
-										send_MESSAGE_PRIVATE(userId, 'Promoted ' + userName + ' to admin')
-										connection.release()
-									})	
-								}	
-							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',' + connection.escape(userName) + ',' + 4 + ',"admin")').done(function(result) {
-									send_BUDDY_ADD(idResult)
-									send_MESSAGE_PRIVATE(userId, userName + ' is now an admin')
-									connection.release()
-								})
-							}	
-						})
-						
-					})
-				}
-				
-			})	
-		} else {
-		send_MESSAGE_PRIVATE(userId,'Usage: addadmin <player name>')	
-			
-		}
-	},
-	addmod : function(userId,args) {
-		if (args !== undefined) {
-			userName = capitalize(args[0].toLowerCase())
-			commands.lookupUserName(userName).then(function (idResult) {
-				if (idResult === -1) {
-					send_MESSAGE_PRIVATE(userId, userName + ' not found')	
-				} else {	
-					connectdb().done(function (connection) {
-						query(connection,'SELECT * FROM admins WHERE name = ?', [userName]).done(function(result) {
-							if (result[0].length !== 0) { //first check if player is already an admin or mod
-								if (result[0][0].level == 3) {
-									send_MESSAGE_PRIVATE(userId, userName + ' is already a moderator')
-									connection.release()
-								} else if (result[0][0].level >= 4) {
-									send_MESSAGE_PRIVATE(userId, userName + ' is already an admin')
-									connection.release()
-								
-								} else {
-									connection.release() // just to be safe
-								}	
-							} else {
-								query(connection,'INSERT INTO admins (charId, name,level,rank) VALUES (' + idResult + ',' + connection.escape(userName) + ',' + 3 + ',"moderator")').done(function(result) {
-									send_BUDDY_ADD(idResult)
-									send_MESSAGE_PRIVATE(userId, userName + ' is now a moderator')
-									connection.release()
-								})
-							}	
-						})
-					})
-				}
-				
-			})	
-		} else {
-		send_MESSAGE_PRIVATE(userId,'Usage: addmod <player name>')	
-			
-		}
-	},
-	deladmin: function(userId, args) {
-		if (args !== undefined) {	
-			var userName = capitalize(args[0].toLowerCase())
-			connectdb().done(function (connection) { 	
-				query(connection,'SELECT * FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
-					if (result[0].length === 0) {
-						send_MESSAGE_PRIVATE(userId, userName + ' is not an admin')
-						connection.release()
-					} else {
-						var adminCharId = result[0][0].charid
-						query(connection,'DELETE FROM admins WHERE name = ' + connection.escape(userName)).done(function(result) {
-						send_BUDDY_REMOVE(adminCharId)
-						send_MESSAGE_PRIVATE(userId, userName + ' is no longer an admin')
-						connection.release()									
-						})
-					}	
-				})
-			})	
-		}
-		else {
-			send_MESSAGE_PRIVATE(userId,'Usage: deladmin <player name>')
-		}
-		
-	},
-	addmember: function(userId,args) {
-		if (args !== undefined) {
-			userName = capitalize(args[0].toLowerCase())
-			commands.lookupUserName(userName).then(function (idResult) {
-				if (idResult === -1) {
-				send_MESSAGE_PRIVATE(userId, userName + ' not found')	
-				} else {
-					connectdb().done(function(connection) {
-						query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function (result) {
-							if (result[0].length !== 0) {
-									send_MESSAGE_PRIVATE(userId, userName + ' is already a member')
-									connection.release()
-							} else {	
-								query(connection,'INSERT INTO members (charId, name, main) VALUES (' + idResult + ',"' + userName + '","' + userName +'")').then(function() {
-									return query(connection, 'INSERT INTO points (main) VALUES ("' + userName + '")')
-								}).done(function() {
-									send_MESSAGE_PRIVATE(userId, userName + ' is now a member')
-									connection.release()
-								})	
-							}
-						})
-					
-					})
-				}		
-			})
-		} else {
-		send_MESSAGE_PRIVATE(userId,'Usage: addmember <player name>')	
-			
-		}
-	},
-	delmember: function(userId, args) {//ADD : Main should not be deletable if it has alts, might break db
-		if (args !== undefined) {	
-			userName = capitalize(args[0].toLowerCase())
-			connectdb().done(function(connection) {
-				query(connection,'SELECT * FROM members WHERE name = ' + connection.escape(userName)).done(function(result) {
-					if (result[0].length === 0) {
-						send_MESSAGE_PRIVATE(userId, userName + ' is not a member of this bot')
-						connection.release()
-					}	else if (!args[1]) {	
-						query(connection,'SELECT * FROM members WHERE main = ?',[userName]).then(function(result) {
-							if (result[0].length > 1) {
-								send_MESSAGE_PRIVATE(userId, userName + ' cannot be deleted as long as he still has alts registered!')
-								connection.release()	
-							} else {
-								return query(connection,'DELETE FROM members WHERE name = ?', [userName]).done(function () {
-									send_MESSAGE_PRIVATE(userId, userName + ' is no longer a member')
-									connection.release()
-								})								
-							}	
-						})
-					} else if (args[1] == 'all')  {
-						query(connection, 'DELETE members,points FROM members INNER JOIN points ON members.main = points.main WHERE members.name = ?', [userName]).done(function() {
-							send_MESSAGE_PRIVATE(userId, userName + '\'s account has been deleted, alts included.')
-						})					
-					}		
-				})
-			})
-		} else {
-			send_MESSAGE_PRIVATE(userId,'Usage: delmember <player name>')
-		}
-	},
-	register: function(userId) {
-		connectdb().done(function(connection) {
-			query(connection, 'SELECT * FROM members WHERE charId = ' + userId).done(function (result) {
-				if (result[0].length !== 0) { //first check if player is already a member
-						send_MESSAGE_PRIVATE(userId,' You are already a member')
-						connection.release()
-				} else {
-					getUserName(connection,userId).done(function (result) {
-						query(connection,'INSERT INTO members (charId, name, main) VALUES (' + userId + ',"' + result[0][0].name + '","' + result[0][0].name +'")').then(function() {
-							return query(connection, 'INSERT INTO points (main) VALUES ("' + result[0][0].name + '")')
-						}).done(function() {
-							send_MESSAGE_PRIVATE(userId, 'You are now a member')
-							connection.release()
-						})	
-					})	
-				}	
-			})	
-			
-		})
-	},
-	unregister : function(userId) { //ADD : Main should not be deletable if it has alts, might break db
-		connectdb().done(function(connection) {
-			query(connection,'SELECT * FROM members WHERE charid = ' + userId).done(function(result) {
-				if (result.length === 0) {
-					send_MESSAGE_PRIVATE(userId, 'You are not a member of this bot')
-					connection.release()
-				}	else {
-					// Check if char is set as main before deleting
-					getUserName(connection,userId).done(function (result) {
-						var userName = result[0][0].name
-						query(connection,'SELECT * FROM members WHERE main = ?',[userName]).then(function(result) {
-							if (result[0].length > 1) {
-								send_MESSAGE_PRIVATE(userId, 'You must delete your alts first.')
-								connection.release()	
-							} else {
-								return query(connection,'DELETE FROM members WHERE charid = ' + userId).done(function () {
-									send_MESSAGE_PRIVATE(userId, 'You are no longer a member')
-									connection.release()
-								})								
-							}	
-						})
-					})	
-				}
-			})	
-			
-		})
-	},
-	online : function(userId) {
-		var professions = {
-			'Adventurer': {
-				icon: '<img src=rdb://84211>',
-				alias: 'adv',
-				members: []
-			},
-			'Agent': {
-				icon: '<img src=rdb://16186>',
-				alias: 'agt',
-				members: []
-			},
-			'Bureaucrat': {
-				icon: '<img src=rdb://16341>',
-				alias: 'crat',
-				members: []
-			},
-			'Doctor': {
-				icon: '<img src=rdb://44235>',
-				alias: 'doc',
-				members: []
-			},
-			'Enforcer': {
-				icon: '<img src=rdb://117926>',
-				alias: 'enf',
-				members: []
-			},
-			'Engineer': {
-				icon: '<img src=rdb://44135>',
-				alias: 'eng',
-				members: []
-			},
-			'Fixer': {
-				icon: '<img src=rdb://16300>',
-				alias: 'fix',
-				members: []
-			},
-			'Keeper': {
-				icon: '<img src=rdb://39250>',
-				alias: 'keeper',
-				members: []
-			},
-			'Martial Artist': {
-				icon: '<img src=rdb://16196>',
-				alias: 'ma',
-				members: []
-			},
-		'Meta-Physicist': {
-				icon: '<img src=rdb://16308>',
-				alias: 'mp',
-				members: []
-			},
-			'Nano-Technician': {
-				icon: '<img src=rdb://16283>',
-				alias: 'nt',
-				members: []
-			},
-			'Shade': {
-				icon: '<img src=rdb://39290>',
-				alias: 'shade',
-				members: []
-			},
-			'Soldier': {
-				icon: '<img src=rdb://16237>',
-				alias: 'sol',
-				members: []
-			},
-			'Trader': {
-				icon: '<img src=rdb://117924>',
-				alias: 'trader',
-				members: []
-			}
-		}
-
-		connectdb().done(function(connection) {	
-			if (!ORG) {
-				query(connection, 'SELECT * FROM players INNER JOIN channel ON players.name = channel.name ORDER BY "name" ASC').done(function(result) {
-					var onlineReply = '<center><font color=#FFFF00>:: ' + result[0].length + ' characters in private group ::</font></center><br>'
-						for (i = 0; i < result[0].length; i++) {
-							(professions[result[0][i].profession].members).push(result[0][i].name + ' (<font color=#89D2E8>' + result[0][i].level + '</font>/<font color=#40FF00>' + result[0][i].ai_level + '</font>) - ' +  result[0][i].guild + '\n')
-					}
-						for (prof in professions) {
-							if (professions[prof].members.length > 0) {
-								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-								onlineReply += professions[prof].icon
-								onlineReply += '<font color=#FFFF00>' + prof + '</font>'
-								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-								onlineReply += professions[prof].members
-						}	
-					}	
-						
-					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  )
-				})		
-			} else {
-				query(connection, 'SELECT * FROM players INNER JOIN online ON players.name = online.name ORDER BY "name" ASC').done(function(result) {
-					var onlineReply = '<center><font color=#FFFF00>:: ' + result[0].length + ' characters in private group ::</font></center><br>'
-						for (i = 0; i < result[0].length; i++) {
-							(professions[result[0][i].profession].members).push(result[0][i].name + ' (<font color=#89D2E8>' + result[0][i].level + '</font>/<font color=#40FF00>' + result[0][i].ai_level + '</font>) - ' +  result[0][i].guild + '\n')
-					}
-						for (prof in professions) {
-							if (professions[prof].members.length > 0) {
-								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-								onlineReply += professions[prof].icon
-								onlineReply += '<font color=#FFFF00>' + prof + '</font>'
-								onlineReply += '\n<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n'
-								onlineReply += professions[prof].members
-						}	
-					}	
-						
-					send_MESSAGE_PRIVATE(userId, blob('Online', onlineReply) + '(' + result[0].length + ')'  )
-				})		
-
-			}			
-			connection.release()
-		})
-	},
-	admins : function (userId) {
-		connectdb().done(function(connection) {
-			query(connection, 'SELECT * from admins ORDER BY "name" ASC').done(function(result) {
-				var adminsResult = '<center><font color=#FFFF00>:: Admins ::</font></center><br>'
-					query(connection, 'SELECT * from online').done(function(result2) {
-						on = ''
-						for (i = 0; i < result2[0].length; i++) {
-							on += result2[0][i].name + ' '
-						}	
-						
-						for (i = 0; i < result[0].length; i++) {
-							if (on.indexOf(result[0][i].name.replace(/\'/gm,'')) >= 0 ) {
-								adminsResult += '<font color=#00FF00>' + result[0][i].name + ' </font> \n' 
-							} else {
-								adminsResult += '<font color=#FF0000>' + result[0][i].name + ' </font> \n' 
-							}	
-								
-						}	
-						send_MESSAGE_PRIVATE(userId, blob('Admins',adminsResult.replace(/\'/gm,'')))
-					})
-				connection.release()
-			})
-			
-		})
-	},
-	alts : function(userId,args) { // Add prof - (level/ai level) to alt list
-		connectdb().done(function(connection) {
-			getUserName(connection,userId).done(function(result) {
-				userName = result[0][0].name
-				if (!args) {
-					query(connection, 'SELECT * FROM members WHERE main = "' + userName + '" ORDER BY "name" ASC').done(function(result) {
-						if (result[0].length > 1) {
-							altList = '<center> <font color=#FFFF00> ::: Alts of ' + userName + '::: </font> </center> \n\n'
-							for (i = 0; i < result[0].length; i++) {
-								altList += result[0][i].name + '\n'	
-							}	
-							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + userName + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
-							connection.release()
-						} else {
-							send_MESSAGE_PRIVATE(userId, 'You have no alts registered.')
-							connection.release()
-						}
-					})	
-				}	else if (args[0] == 'add') {
-					if (args[1] !== undefined) {
-						commands.lookupUserName(args[1]).then(function (idResult) {
-							if (idResult === -1) {
-								send_MESSAGE_PRIVATE(userId,'Invalid character name')
-								connection.release()
-							} else {
-								alt = capitalize(args[1].toLowerCase())
-								if (userName === alt) {
-									send_MESSAGE_PRIVATE(userId, 'You can\'t add yourself as an alt')	
-									connection.release()
-									return
-								}
-								query(connection,'SELECT * FROM members WHERE name = ?', [alt]).done(function(result) {
-									if (result[0].length > 0) {
-										if (alt !== result[0][0].main) {
-											send_MESSAGE_PRIVATE(userId, alt + ' is already registered as an alt to ' + result[0][0].main)
-											connection.release()
-										} else {
-											query(connection, 'UPDATE members SET main = "' + userName + '" WHERE name = ?', [alt]).then(function() {
-												return query(connection, 'SELECT * FROM points WHERE main = ?',[alt]).then(function(result) {
-													return query(connection, 'UPDATE points SET points = points +' + result[0][0].points + ' WHERE main = "' + userName + '"').then(function() {
-														return query(connection, 'DELETE FROM points WHERE main = ?', [alt]).done(function() {
-															send_MESSAGE_PRIVATE(userId, alt + ' was registered as an alt, hes points have been added to your account.')
-															connection.release()
-														})
-													})
-												})
-											})	
-										}	
-									} else {
-										send_MESSAGE_PRIVATE(userId, alt + ' is not a member.')
-										connection.release()	
-									}
-																		
-								})								
-							}	
-						})		
-					} else {
-						send_MESSAGE_PRIVATE(userId, 'Usage: !alts add name.')
-						connection.release()
-					}
-				} else if (args[0] == 'del') {
-					if (!args[1]) {
-						send_MESSAGE_PRIVATE(userId, 'Usage: !alts del name.')
-						connection.release()
-						return	
-					}	
-					alt = capitalize(args[1].toLowerCase())
-					query(connection,'SELECT * FROM members WHERE name = ? AND main = "' + userName + '"', [alt] ).done(function(result) {
-						if (result[0].length > 0) {
-							query(connection, 'UPDATE members SET main = ? WHERE name = "' + alt + '"', [alt]).then(function() {
-								return query(connection, 'INSERT INTO points (main) VALUES (?)',[alt]).done(function() {
-									send_MESSAGE_PRIVATE(userId, alt + ' is no longer registered as your alt.')	
-									connection.release()
-								})
-							})
-						} else {
-							send_MESSAGE_PRIVATE(userId, alt + ' is not registered as your alt.')
-							connection.release()
-						}
-					})
-				}  else {
-					alt = capitalize(args[0].toLowerCase())
-					query(connection, 'SELECT alts.* FROM members JOIN members AS alts ON members.main = alts.main WHERE members.name = ? ORDER BY name ASC', [alt]).done(function(result) {
-						if (result[0].length > 1) {
-							altList = '<center> <font color=#FFFF00> ::: Alts of ' + result[0][0].main + '::: </font> </center> \n\n'
-							for (i = 0; i < result[0].length; i++) {
-								altList += result[0][i].name + '\n'	
-							}
-							send_MESSAGE_PRIVATE(userId, blob('Alts of ' + result[0][0].main + ' (' + result[0].length + ')', altList.replace(/\'|\`/gm, '')))
-							connection.release()
-						} else {
-							send_MESSAGE_PRIVATE(userId, alt + ' has no alts registered.')
-							connection.release()
-						}
-					})
-				}				
-			})
-		})
-	},	
-	shutdown : function	(userId) {
-		if (ORG !== false) {
-			send_GROUP_MESSAGE('Shutting Down')
-		} else {
-			send_PRIVGRP_MESSAGE(botId,'Shutting Down')
-		}	
-		die('Shutting down')
-	},
-	lock : function(userId) {
-		connectdb().done(function(connection) {
-			getUserName(connection,userId).done(function(result) {
-				var userName = result[0][0].name
-				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
-					if (result[0][0].access_req >= 3) {
-						send_MESSAGE_PRIVATE(userId, 'Channel is already locked')
-						connection.release()
-					} else {	
-						query(connection, 'UPDATE cmdcfg SET access_req = 3 WHERE module = "Core" and cmd = "join"').done(function() {
-							send_MESSAGE_PRIVATE(userId, 'Channel is now locked')
-							send_PRIVGRP_MESSAGE(botId, userName + ' locked the channel')
-							connection.release()
-						})
-					}
-				})
-			})			
-		})		
-	},
-	unlock : function(userId) {
-		connectdb().done(function(connection) {
-			getUserName(connection,userId).done(function(result) {
-				var userName = result[0][0].name
-				query(connection,'SELECT * FROM cmdcfg WHERE module = "CORE" and cmd = "join"').then(function(result) {	
-					if (result[0][0].access_req === 0) {
-						send_MESSAGE_PRIVATE(userId, 'Channel is already unlocked')
-						connection.release()
-					} else {	
-						query(connection, 'UPDATE cmdcfg SET access_req = 0 WHERE module = "Core" and cmd = "join"').done(function() {
-							send_MESSAGE_PRIVATE(userId, 'Channel is now unlocked')
-							send_PRIVGRP_MESSAGE(botId, userName + ' unlocked the channel')
-							connection.release()
-						})
-					}
-				})
-			})			
-		})		
-	}
-}
-
-
-module.exports = commands
-
-//Globals
-
-// CORE STUFF
-
-global.connectdb = function()
-{
-	 return Q.ninvoke(pool, 'getConnection').fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}
- 
-	
-global.getUserName = function(connection, userId) {
-		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE `charid` = ' + userId  ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
-global.getUserNameAsync = function(connection, userId) {
-    var result = Q.defer()
-    var handler = function ()
-    {
-        result.resolve(query(connection ,'SELECT * FROM players WHERE `charid` = ?', userId ))
-    }
-    onClientName.once(userId, handler)
-    var timeout = setTimeout(function ()
-    {
-        result.reject("Couldn't get userId")
-    }, 1000)
-    return query(connection ,'SELECT * FROM players WHERE `charid` = ?', userId )
-        .then(function (rows) {
-            if (rows[0].length > 0)
-            {
-                onClientName.removeListener(userId, handler)
-                clearTimeout(timeout)
-                result.resolve(rows)
+    cmdlist: function(userId) {
+        Command.find({}, function(err, result) {
+            if (err) {
+                winston.error(err);
+                GlobalFn.PMUser(userId, 'Something went wrong, try again.', 'error');
+            } else {
+                let cmdReply = '<center> <font color=#FFFF00> :::Darknet Command List::: </font> </center> \n\n';
+                for (let i = 0, len = result.length; i < len; i++) {
+                    cmdReply += '<font color=#00FFFF>Cmd name:</font> ' + _.capitalize(result[i].cmdName) + ' \n';
+                    cmdReply += '<font color=#00FFFF>Description:</font> ' + result[i].description + ' \n';
+                    cmdReply += '<font color=#00FFFF>Usage:</font> ' + result[i].help + ' \n';
+                    cmdReply += '<font color=#00FFFF>Access Required:</font> ' + result[i].accessRequired + ' \n';
+                    cmdReply += '<font color=#00FFFF>Status:</font>' +
+                        (result[i].enabled === false ? '<font color=#FF0000>Disabled' : '<font color=#00FF00>Enabled') + '</font>\n\n';
+                }
+                GlobalFn.PMUser(userId, GlobalFn.blob('Command List', cmdReply));
             }
-            return result.promise
-        })
-}
-global.getUserId = function(connection, userName) {
-		return Q.ninvoke(connection, 'query','SELECT * FROM players WHERE name = "' + userName + '"' ).fail(function (err, connection)
-        {
-        console.log(err)
-        connection.release()
-        })
-}	
+        });
+    },
+    ban: function(userId, args) {
+        if (args[0] === null) {
+            GlobalFn.PMUser(userId, 'Ban whom ?', 'warning');
+        } else {
+            Player.findOneAndUpdate({
+                'name': _.capitalize(args[0])
+            }, {
+                'banned': true
+            }, function(err, result) {
+                if (!result) {
+                    GlobalFn.PMUser(userId, 'Player is not a member!', 'warning');
+                } else {
+                    GlobalFn.PMUser(userId, 'User banned!', 'success');
+                }
+            });
+        }
+    },
+    unban: function(userId, args) {
+        if (args[0] === null) {
+            GlobalFn.PMUser(userId, 'Unban whom?', 'warning');
+        } else {
+            Player.findOneAndUpdate({
+                'name': _.capitalize(args[0])
+            }, {
+                'banned': false
+            }, function(err, result) {
+                if (!result) {
+                    GlobalFn.PMUser(userId, 'Player is not a member!', 'warning');
+                } else {
+                    GlobalFn.PMUser(userId, 'User unbanned!', 'success');
+                }
+            });
+        }
+    },
+    stats: function(userId) {
+      // Some bot statistics
+    },
+    about: function(userId) {
+        GlobalFn.PMUser(userId, GlobalFn.blob('About', about));
+    },
+    rules: function(userId) {
+        GlobalFn.PMUser(userId, GlobalFn.blob('Rules', rules));
+    },
+    addadmin: function(userId, args) {
+        let userName = _.capitalize(args[0]);
+        if (userName !== undefined) {
+            this.lookupUserName(userName).then(function(idResult) {
+                if (idResult !== -1) {
+                    Player.findOne({
+                        'name': userName
+                    }, function(err, result) {
+                        if (err) {
+                            winston.error(err);
+                        } else if (result === null) {
+                            // If user is not found in the database, insert it with minimal info,
+                            // BUDDY_ADD Event will fill the rest
+                            const addPlayer = new Player();
+                            addPlayer._id = idResult;
+                            addPlayer.name = _.capitalize(userName);
+                            addPlayer.accessLevel = 2;
+                            addPlayer.save(function(err) {
+                                if (err) {
+                                    winston.error('Failed to add new admin: ' + err);
+                                    GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                                    // As a failsafe try to get data from AO server manually
+                                    GlobalFn.getPlayerData(idResult, userName);
+                                } else {
+                                    send_BUDDY_ADD(idResult);
+                                    GlobalFn.PMUser(userId, userName + ' is now an admin.', 'success');
+                                }
+                            });
+                        } else if (result.accessLevel === 2) {
+                            GlobalFn.PMUser(userId, userName + ' is already an admin.', 'warning');
+                        } else {
+                            Player.update({
+                                'name': userName
+                            }, {
+                                'accessLevel': 2
+                            }, function(err) {
+                                if (err) {
+                                    winston.error(err);
+                                    GlobalFn.PMUser(userId, 'Database error, unable complete operation.', 'error');
+                                } else {
+                                    GlobalFn.PMUser(userId, userName + ' is now an admin.', 'success');
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    GlobalFn.PMUser(userId, 'Character ' + userName + ' does not exist.', 'warning');
+                }
+            });
+        } else {
+            GlobalFn.PMUser(userId, 'Invalid request, use !addadmin <player name>.', 'warning');
+        }
 
-global.query = function(connection) {
-		return Q.npost(connection, 'query', Array.prototype.slice.call(arguments, 1)).fail(function (err, connection) {
-			console.log(err)
-			connection.release()
-		})	
-}	
-   
+    },
+    addmember: function(userId, args) {
+        let userName = _.capitalize(args[0]);
+        if (userName !== undefined) {
+            this.lookupUserName(userName).then(function(idResult) {
+                if (idResult !== -1) {
+                    Player.findOne({
+                        'name': userName
+                    }, function(err, result) {
+                        if (err) {
+                            winston.error(err);
+                        } else if (result === null) {
+                            // If user is not found in the database, insert it with minimal info,
+                            // BUDDY_ADD Event will fill the rest
+                            const addPlayer = new Player();
+                            addPlayer._id = idResult;
+                            addPlayer.name = userName;
+                            addPlayer.accessLevel = 1;
+                            addPlayer.generalChannel = true;
+                            addPlayer.lrChannel = true;
+                            addPlayer.wtbChannel = true;
+                            addPlayer.wtsChannel = true;
+                            addPlayer.pvmChannel = true;
+                            addPlayer.save(function(err) {
+                                if (err) {
+                                    winston.error('Failed to add new member: ' + err);
+                                    GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                                    // As a failsafe try to get data from AO server manually
+                                    GlobalFn.getPlayerData(idResult, userName);
+                                } else {
+                                    Player.count({
+                                        'accessLevel': {
+                                            $gte: 1
+                                        },
+                                        'buddyList': 'main'
+                                    }, function(err, result) {
+                                        if (result >= 990) {
+                                            GlobalFn.replicaBuddyList({
+                                                buddyAction: 'add',
+                                                buddyId: idResult,
+                                                count: result
+                                            });
+                                        } else {
+                                            send_BUDDY_ADD(idResult);
+                                        }
+                                    });
+                                    GlobalFn.PMUser(userId, userName + ' is now a member.', 'success');
+                                }
+                            });
+                        } else if (result.accessLevel === 1) {
+                            GlobalFn.PMUser(userId, userName + ' is already a member.', 'warning');
+                        } else {
+                            Player.update({
+                                'name': userName
+                            }, {
+                              // edit this based on bot purpose
+                                'accessLevel': 1
 
-	
-global.die = function(msg) {
-    if (msg) {
-        console.log(msg)
+                            }, function(err) {
+                                if (err) {
+                                    winston.error(err);
+                                    GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                                } else {
+                                    Player.count({
+                                        'accessLevel': {
+                                            $gte: 1
+                                        },
+                                        'buddyList': 'main'
+                                    }, function(err, result) {
+                                        if (result >= 990) {
+                                            GlobalFn.replicaBuddyList({
+                                                buddyAction: 'add',
+                                                buddyId: idResult,
+                                                count: result
+                                            });
+                                        } else {
+                                            send_BUDDY_ADD(idResult);
+                                        }
+                                    });
+                                    GlobalFn.PMUser(userId, userName + ' is now a member and has been subscribed to all channels!', 'success');
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    GlobalFn.PMUser(userId, 'Character ' + userName + ' does not exist.', 'warning');
+                }
+            });
+        } else {
+            GlobalFn.PMUser(userId, 'Invalid request, use !addmember <player name>.', 'warning');
+        }
+    },
+    register: function(userId) {
+        Player.findOne({
+            '_id': userId
+        }, function(err, result) {
+            if (err) {
+                winston.error(err);
+            } else if (!result) {
+                coreCmd.getClientName(userId).then(function() {
+                    Player.findOneAndUpdate({
+                        '_id': userId,
+                        'level': {
+                            $gte: GlobalFn.minLevel
+                        }
+                    }, {// TODO edit this based on bot purpose
+                        'accessLevel': 1
+
+                    }, function(err, result) {
+                        if (err) {
+                            winston.error(err);
+                            GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                        } else if (result === null) {
+                            GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                        } else {
+                            Player.count({
+                                'accessLevel': {
+                                    $gte: 1
+                                },
+                                'buddyList': 'main'
+                            }, function(err, result) {
+                                if (result >= 990) {
+                                    GlobalFn.replicaBuddyList({
+                                        buddyAction: 'add',
+                                        buddyId: userId,
+                                        count: result
+                                    });
+                                } else {
+                                    send_BUDDY_ADD(userId);
+                                }
+                            });
+                            GlobalFn.PMUser(userId, 'Welcome to Darknet, you have been subscribed to all channels, please take a look at our ' +
+                                GlobalFn.blob('Rules', rules) + ' and ' + GlobalFn.blob('Help.', helpMsg));
+                        }
+                    });
+                });
+            } else if (result.level < GlobalFn.minLevel) {
+                GlobalFn.PMUser(userId, 'You need at least level ' +
+                    GlobalFn.minLevel + ' to register', 'warning');
+            } else if (result.accessLevel >= 1) {
+                GlobalFn.PMUser(userId, 'You are already a member.', 'warning');
+            } else {
+                Player.findOneAndUpdate({
+                    '_id': userId
+                }, {
+                    'accessLevel': 1 // edit this based on bot purpose
+                }, function(err) {
+                    if (err) {
+                        winston.error(err);
+                        GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                    } else {
+                        Player.count({
+                            'accessLevel': {
+                                $gte: 1
+                            },
+                            'buddyList': 'main'
+                        }, function(err, result) {
+                            if (result >= 990) {
+                                GlobalFn.replicaBuddyList({
+                                    buddyAction: 'add',
+                                    buddyId: userId,
+                                    count: result
+                                });
+                            } else {
+                                send_BUDDY_ADD(userId);
+                            }
+                        });
+                        GlobalFn.PMUser(userId, 'Welcome to Darknet ' + result.name +
+                            ', you have been subscribed to all channels, please take a look at our ' +
+                            GlobalFn.blob('Rules', rules) + ' and ' + GlobalFn.blob('Help.', helpMsg));
+                    }
+                });
+            }
+        });
+    },
+    remadmin: function(userId, args) {
+        if (!args[0]) {
+            GlobalFn.PMUser(userId, 'Invalid request, use !delmember <player name>.', 'warning');
+        } else {
+            let userName = _.capitalize(args[0]);
+            Player.findOne({
+                'name': userName
+            }, function(err) {
+                if (err) {
+                    winston.error(err);
+                    GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                } else if (!result || result.accessLevel !== 2) {
+                    GlobalFn.PMUser(userId, userName + ' is not an admin.', 'warning');
+                } else {
+                    Player.update({
+                        'name': userName
+                    }, {
+                        'accessLevel': 1
+                    }, function(err) {
+                        if (err) {
+                            winston.error(err);
+                            GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                        } else {
+                            GlobalFn.PMUser(userId, userName + ' is no longer an admin.', 'success');
+                        }
+                    });
+                }
+            });
+        }
+    },
+    remmember: function(userId, args) {
+        if (!args[0]) {
+            GlobalFn.PMUser(userId, 'Invalid request, use !remmember <player name>.', 'warning');
+        } else {
+            let userName = _.capitalize(args[0]);
+            Player.findOne({
+                'name': userName
+            }, function(err, result) {
+                if (err) {
+                    winston.error(err);
+                    GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                } else if (!result || result.accessLevel < 1) {
+                    GlobalFn.PMUser(userId, userName + ' is not member.', 'warning');
+                } else {
+                    Player.update({
+                        'name': userName
+                    }, {
+                        'accessLevel': 0// edit this based on bot purpose
+                    }, function(err) {
+                        if (err) {
+                            winston.error(err);
+                            GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                        } else {
+                            if (result.buddyList === 'main') {
+                                send_BUDDY_REMOVE(result._id);
+                            } else {
+                                GlobalFn.replicaBuddyList({
+                                    buddyAction: 'rem',
+                                    replica: result.buddyList,
+                                    buddyId: result._id
+                                });
+                            }
+                            send_BUDDY_REMOVE(result._id);
+                            GlobalFn.PMUser(userId, userName + ' is no longer a member.', 'success');
+                        }
+                    });
+                }
+            });
+        }
+    },
+    unregister: function(userId) {
+        Player.findOne({
+            '_id': userId
+        }, function(err, result) {
+            if (err) {
+                winston.error(err);
+            } else if (!result) { // this should not happen
+                winston.debug('Unable to find ' + userId);
+                GlobalFn.PMUser(userId, 'You are not a member!', 'warning');
+            } else if (result.accessLevel === 0) {
+                GlobalFn.PMUser(userId, 'You are not a member!', 'warning');
+            } else {
+                Player.update({
+                    '_id': userId
+                }, {
+                    'accessLevel': 0// edit this based on bot purpose
+                }, function(err) {
+                    if (err) {
+                        winston.error('Failed to unregister player: ' + err);
+                        GlobalFn.PMUser(userId, 'Database operation failed, try again.', 'error');
+                    } else {
+                        if (result.buddyList === 'main') {
+                            send_BUDDY_REMOVE(userId);
+                        } else {
+                            GlobalFn.replicaBuddyList({
+                                buddyAction: 'rem',
+                                replica: result.buddyList,
+                                buddyId: userId
+                            });
+                        }
+                        GlobalFn.PMUser(userId, 'You are no longer a member and have been unsubscribed from all channels!', 'success');
+                    }
+                });
+            }
+        });
+    },
+        test: function(userId) {
+        //For testing purposes only, keep empty
+    },
+    addreplica: function(userId, args) {
+        addReplica = new Replica();
+        addReplica.username = args[0];
+        addReplica.password = args[1];
+        addReplica.replicaname = _.capitalize(args[2]);
+        if (args[3]) {
+            addReplica.dimension = args[3];
+        }
+        addReplica.save(function(err) {
+            if (err) {
+                winston.error(err);
+                GlobalFn.PMUser(userId, 'Unable to add new replica, see Log for details!', 'error');
+            } else {
+                GlobalFn.PMUser(userId, 'Successfully added a new replica!', 'success');
+            }
+        });
+    },
+    shutdown: function(userId) {
+        GlobalFn.die('Shutting down on user request');
+    },
+    invite: function(userId, args) {
+        let userName = args[0];
+        if (userName !== undefined) {
+            this.lookupUserName(userName).then(function(idResult) {
+                if (idResult !== -1) {
+                    send_PRIVGRP_INVITE(idResult);
+                    GlobalFn.PMUser(userId, 'Invited ' + userName + ' to this channel', 'success');
+                } else {
+                    GlobalFn.PMUser(userId, 'Character ' + userName + ' does not exist.', 'warn');
+                }
+            });
+        } else {
+            send_PRIVGRP_INVITE(userId);
+        }
+    },
+    join: function(userId) {
+        send_PRIVGRP_INVITE(userId);
+    },
+    kick: function(userId, args) {
+        let userName = args[0];
+        if (userName !== undefined) {
+            this.lookupUserName(userName).then(function(idResult) {
+                if (idResult !== -1) {
+                    Chat.findById(idResult).populate('_id').exec(function(err, result) {
+                        if (err) {
+                            winston.error(err);
+                        } else if (result === null) {
+                            GlobalFn.PMUser(userId, userName + ' is not on the channel.', 'warning');
+                        } else {
+                            send_PRIVGRP_KICK(idResult);
+                            GlobalFn.PMUser(userId, 'Kicked ' + userName + ' from this channel.', 'success');
+                        }
+                    });
+                } else {
+                    GlobalFn.PMUser(userId, 'Character ' + userName + ' does not exist.', 'warn');
+                }
+            });
+        } else {
+            send_PRIVGRP_KICK(userId);
+            GlobalFn.PMUser(userId, 'You\'ve left the channel.', 'success');
+        }
+    },
+    leave: function(userId) {
+        send_PRIVGRP_KICK(userId);
+        GlobalFn.PMUser(userId, 'You\'ve left the channel.', 'success');
+    },
+    set: function(userId, args) {
+        if (ValidSettings.hasOwnProperty(args[0]) || !args[1]) {
+            Settings.update({}, {
+                [ValidSettings[args[0]]]: args[1]
+            }, function(err) {
+                if (err) {
+                    winston.error(err);
+                } else {
+                    GlobalFn.loadSettings();
+                    GlobalFn.PMUser(userId, 'Settings successfully updated', 'success');
+                }
+            });
+        } else {
+            GlobalFn.PMUser(userId, 'Invalid setting!', 'error');
+        }
+    },
+    autoinvite: function(userId, args) {
+        if (!args[0]) {
+            Player.findOne({
+                '_id': userId
+            }, function(err, result) {
+                if (err) {
+                    winston.error(err);
+                } else {
+                    GlobalFn.PMUser(userId, 'Autoinvite is set to: ' + result.autoinvite, 'success');
+                }
+            });
+        } else if (args[0].toLowerCase() === 'on' || args[0].toLowerCase() === 'off') {
+            if (args[0].toLowerCase() === 'on') {
+                Player.update({
+                    '_id': userId
+                }, {
+                    autoinvite: true
+                }, function(err) {
+                    if (err) {
+                        winston.error(err);
+                    } else {
+                        GlobalFn.PMUser(userId, 'Autoinvite successfully updated!');
+                    }
+                });
+            } else {
+                Player.update({
+                    '_id': userId
+                }, {
+                    autoinvite: false
+                }, function(err) {
+                    if (err) {
+                        winston.error(err);
+                    } else {
+                        GlobalFn.PMUser(userId, 'Autoinvite successfully updated!');
+                    }
+                });
+            }
+        } else {
+            GlobalFn.PMUser(userId, 'Invalid setting!', 'error');
+        }
+    },
+
+    replicastatus: function(userId) {
+        Replica.find({}, function(err, result) {
+            let repStatus = '<center> <font color=#FFFF00> :::Darknet Replicas Status::: </font> </center> \n\n';
+            for (let i = 0, len = result.length; i < len; i++) {
+                repStatus += '<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n';
+                repStatus += '<font color=#00FFFF>Name: </font>' + result[i].replicaname + '\n';
+                if (result[i].ready) {
+                    repStatus += '<font color=#00FFFF>Busy: </font> <font color=#00FF00>No </font>\n';
+                } else {
+                    repStatus += '<font color=#00FFFF>Busy: </font> <font color=#FF0000>Yes </font>\n';
+                }
+                repStatus += '<img src=tdb://id:GFX_GUI_FRIENDLIST_SPLITTER>\n\n';
+            }
+            GlobalFn.PMUser(userId, GlobalFn.blob('Replicas Status', repStatus));
+        });
+    },
+    admins: function(userId) {
+        GlobalFn.PMUser(userId, 'My master is [<a href="user://Wafflespower">Wafflespower</a>], feel free to contact him for any Darknet issues, suggestions or just general feedback.');
     }
-    process.exit()
-}
+};
 
-global.checkAccess = function(userId) {
-        var defer = Q.defer()
-        connectdb().done(function (connection) {
-				getUserNameAsync(connection,userId).done(function(result) {
-				var userName = result[0][0].name
-					if (userName === Owner) {
-						var access = 5
-						defer.resolve(access)
-						return access
-					} else { 
-						query(connection,'SELECT * FROM admins WHERE charid =' + userId ).done(function(result) {
-							if (result[0].length > 0 ) {
-								var access = result[0][0].level
-								defer.resolve(access)
-								return access
-							} else {
-								query(connection,'SELECT * FROM members WHERE charid =' + userId).done(function(result) {
-									if (result[0].length > 0 ) {
-										var access = 1 
-										defer.resolve(access)
-										return access
-									} else {
-										var access = 0
-										defer.resolve(access)
-										return access
-									}                              
-								})
-							}      
-						})
-					}	
-				})
-				
-		})
-        return defer.promise   
-}
+const ValidSettings = {
+    cmdprefix: 'cmdPrefix',
+    pmcolor: 'defaultPMColor',
+    successpmcolor: 'successPMColor',
+    warnpmcolor: 'warnPMColor',
+    errpmcolor: 'errPMColor',
+    chatcolor: 'defaultChatColor',
+    successchatcolor: 'successChatColor',
+    warnchatcolor: 'warnChatColor',
+    errchatcolor: 'errChatColor',
+    minlevel: 'minLevel',
+    maxwarnings: 'maxWarnings',
+    generallock: 'generalLockDuration',
+    wtslock: 'wtsLockDuration',
+    wtblock: 'wtbLockDuration',
+    lrlock: 'lrLockDuration',
+    pvmlock: 'pvmLockDuration'
+};
 
-// TOOLS
+var about = '<center> <font color=#FFFF00> :::Nephbot - Darknet::: </font> </center> \n\n';
+about += '<font color=#00FFFF>Version:</font> 0.2.7 \n';
+about += '<font color=#00FFFF>By:</font> Nepherius \n';
+about += '<font color=#00FFFF>On:</font>' + process.platform + '\n';
+about += '<font color=#00FFFF>In:</font> Node v' + process.versions.node + '\n';
+about += '<font color=#00FFFF>With:</font> MongoDB(Mongoose) \n';
+about += '<font color=#00FFFF>Contact:</font> nepherius@live.com \n';
+about += '<font color=#00FFFF>Source Code</font> https://github.com/Nepherius/Darknet \n\n';
 
-// Blobs
+about += '<font color=#00FFFF>Special Thanks:</font> To all the people that worked on the original AO Chat Bots, Nephbot would not be possible without them.    \n';
 
-global.blob = function (name, content) {
-  return '<a href=\'text://'  +  content.replace("'", "`") + '\'>' + name + '</a>'
-	
-}	
 
-global.tellBlob = function (user, content, link) {
-  return '<a href=\"chatcmd:///tell ' + user + ' ' + content.replace("'", "`") + '\">' + link + '</a>'
- }
+helpMsg = '<center> <font color=#FFFF00> :::General Help::: </font> </center> \n\n';
+helpMsg += '<font color=#00FFFF> [arg] <- This is an optional argument  </font>' + '\n\n';
+helpMsg += '<font color=#00FFFF>help [command name]</font> - Display general help or for a specific command.' + '\n';
+helpMsg += '<font color=#00FFFF>about </font> - General Bot info.' + '\n';
+helpMsg += '<font color=#00FFFF>cmdlist </font> - List all commands.' + '\n';
+helpMsg += '<font color=#00FFFF>join </font> - Join private channel, while on this channel you will no longer receive PM from Darknet.' + '\n';
+helpMsg += '<font color=#00FFFF>rules </font> - List Darknet rules.' + '\n';
+helpMsg += '<font color=#00FFFF>status </font> - Display your channel subscription status.' + '\n';
+helpMsg += '<font color=#00FFFF>autoinvite [on|off]</font> - See your current autoinvite status or turn on/off.' + '\n';
+helpMsg += '<font color=#00FFFF>stats </font> - Display Bot statistics.' + '\n';
 
-global.itemref = function (lowid,highid,ql, name) {
-	return  "<a href=\"itemref://" + lowid + "/" + highid + "/" + ql + "\">" + name.replace("'", "`") + "</a>"
-} 	
+
+var rules = '<center> <font color=#FFFF00> :::Darknet Rules::: </font> </center> \n\n';
+rules += '<font color=#00FFFF>Some rules!</font> \n';
+
+
+
+// Export core commands
+module.exports = coreCmd;
